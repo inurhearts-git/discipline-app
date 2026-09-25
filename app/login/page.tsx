@@ -70,6 +70,9 @@ export default function LoginPage() {
           <Link href="/signup" style={{ color: COLORS.brass }}>
             Create an account
           </Link>
+			<Link href="/forgot-password" style={{ color: COLORS.brass }}>
+			Forgot password?
+			</Link>
         </p>
       </div>
     </Shell>
