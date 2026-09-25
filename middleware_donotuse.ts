@@ -1,13 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+#const PUBLIC_PATHS = ["/login", "/signup"];
 const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
-
-// Unlike /login and /signup, /reset-password must stay reachable even for
-// someone who already has a session -- clicking the emailed reset link
-// creates a temporary "recovery" session, and we want them to land on the
-// password form, not get redirected straight to /feed.
-const NO_REDIRECT_IF_LOGGED_IN = ["/reset-password"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -40,16 +35,19 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
-  const skipLoggedInRedirect = NO_REDIRECT_IF_LOGGED_IN.some((p) => path.startsWith(p));
 
   if (!user && !isPublic) {
     const redirectUrl = new URL("/login", request.url);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (user && isPublic && !skipLoggedInRedirect) {
-    return NextResponse.redirect(new URL("/feed", request.url));
-  }
+#  if (user && isPublic) {
+ #   return NextResponse.redirect(new URL("/feed", request.url));
+  #}
+  
+  if (user && isPublic && path !== "/reset-password") {
+  return NextResponse.redirect(new URL("/feed", request.url));
+}
 
   return response;
 }
