@@ -32,7 +32,7 @@ export default async function FeedPage() {
 
   let itemsQuery = supabase
     .from("content_items")
-    .select("id, type, tag, text, attributed_to, source, video_platform, video_id")
+    .select("id, type, tag, text, attributed_to, source, video_platform, video_id, view_count")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 

@@ -41,4 +41,12 @@ export const fmtClock = (ms: number) => {
   return `${m}:${String(s).padStart(2, "0")}`;
 };
 
+// Blueprint §8: display view counts the same way social apps do —
+// 1234 -> "1.2k", 1,200,000 -> "1.2M".
+export const fmtCount = (n: number) => {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n % 1000 < 100 ? 0 : 1)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+};
+
 export const todayStr = () => new Date().toISOString().slice(0, 10);

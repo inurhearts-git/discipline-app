@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Bookmark, Share2, ChevronUp, ChevronDown, Play, X, Clock } from "lucide-react";
+import { Heart, Bookmark, Share2, ChevronUp, ChevronDown, Play, X, Clock, Eye } from "lucide-react";
 import { Shell, Logo } from "@/components/ui/Shell";
-import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, fmtClock, tagColor } from "@/lib/constants";
+import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, fmtClock, fmtCount, tagColor } from "@/lib/constants";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
 interface FeedClientProps {
@@ -22,7 +22,15 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const [liked, setLiked] = useState(initialLiked);
   const [saved, setSaved] = useState(initialSaved);
   const [msSpentToday, setMsSpentToday] = useState(initialMsSpentToday);
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>(
+    Object.fromEntries(items.map((i) => [i.id, i.view_count]))
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Tracks which items we've already fired a view request for this session,
+  // so scrolling back and forth doesn't spam the endpoint. The server-side
+  // dedupe (once per user per day) is the real guarantee against inflation;
+  // this is just to avoid redundant network calls.
+  const viewedRef = useRef<Set<string>>(new Set());
 
   // Server-authoritative heartbeat (blueprint §5). The interval only sends
   // a fixed delta — it never trusts or sends any locally-accumulated
@@ -50,6 +58,28 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(tick);
   }, [router]);
+
+  // Blueprint §8: record a view once per item as it becomes the one in
+  // view. The actual dedupe (per user per day) happens server-side via the
+  // record_view() function — this effect just avoids firing it more than
+  // once per item per session.
+  useEffect(() => {
+    const item = items[index];
+    if (!item || viewedRef.current.has(item.id)) return;
+    viewedRef.current.add(item.id);
+    fetch(`/api/content/${item.id}/view`, { method: "POST" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(() => {
+        // Optimistic bump — the server only actually increments once per
+        // user per day, but reflecting it immediately here keeps the UI
+        // consistent with what likely just happened; a stale count for
+        // returning-same-day views is a cosmetic detail, not a security one.
+        setViewCounts((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? item.view_count) + 1 }));
+      })
+      .catch(() => {
+        // Non-critical — a missed view count isn't worth surfacing an error for.
+      });
+  }, [index, items]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -168,9 +198,14 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                   : `radial-gradient(circle at 30% 20%, ${COLORS.ink2} 0%, ${COLORS.ink} 70%)`,
             }}
           >
-            <div style={{ position: "absolute", top: 74, left: 24, display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", border: `1px solid ${tagColor(item.tag)}`, borderRadius: 3, width: "fit-content" }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: tagColor(item.tag) }} />
-              <span style={{ fontSize: 11, letterSpacing: 1.5, color: tagColor(item.tag), fontWeight: 500 }}>{item.tag}</span>
+            <div style={{ position: "absolute", top: 74, left: 24, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", border: `1px solid ${tagColor(item.tag)}`, borderRadius: 3, width: "fit-content" }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: tagColor(item.tag) }} />
+                <span style={{ fontSize: 11, letterSpacing: 1.5, color: tagColor(item.tag), fontWeight: 500 }}>{item.tag}</span>
+              </div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: COLORS.slate }}>
+                <Eye size={12} /> {fmtCount(viewCounts[item.id] ?? item.view_count)}
+              </span>
             </div>
 
             {item.type === "video" && playing !== i && (
