@@ -3,23 +3,50 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2 } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { COLORS, DAILY_LIMIT_MS, fmtClock } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
+interface UsageDay {
+  date: string;
+  msSpent: number;
+}
+
 interface ProfileClientProps {
   profile: Profile;
   usageMs: number;
+  usageHistory: UsageDay[];
   pendingCount: number;
 }
 
-export function ProfileClient({ profile, usageMs, pendingCount }: ProfileClientProps) {
+// A small palette of preset avatar colors matching the app's ink/parchment/
+// brass identity, rather than a free-form color picker — keeps every
+// avatar looking like it belongs in this app.
+const AVATAR_COLORS = [COLORS.brass, COLORS.ember, COLORS.sage, COLORS.slate, "#7A8FA6", "#A66B8F"];
+
+const dayLabel = (dateStr: string) => {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
+};
+
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, pendingCount }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
+  const [profile, setProfile] = useState(initialProfile);
   const [resetting, setResetting] = useState(false);
   const [localUsageMs, setLocalUsageMs] = useState(usageMs);
+
+  const [editing, setEditing] = useState(false);
+  const [formName, setFormName] = useState(profile.display_name);
+  const [formBio, setFormBio] = useState(profile.bio ?? "");
+  const [formColor, setFormColor] = useState(profile.avatar_color ?? COLORS.brass);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const avatarBg = profile.avatar_color ? `${profile.avatar_color}26` : "rgba(201,162,39,0.15)";
+  const avatarFg = profile.avatar_color ?? COLORS.brass;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -37,6 +64,43 @@ export function ProfileClient({ profile, usageMs, pendingCount }: ProfileClientP
     setResetting(false);
   };
 
+  const startEditing = () => {
+    setFormName(profile.display_name);
+    setFormBio(profile.bio ?? "");
+    setFormColor(profile.avatar_color ?? COLORS.brass);
+    setError("");
+    setEditing(true);
+  };
+
+  const saveProfile = async () => {
+    if (!formName.trim()) {
+      setError("Name can't be empty.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        display_name: formName.trim(),
+        bio: formBio.trim() || null,
+        avatar_color: formColor,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Couldn't save changes.");
+      return;
+    }
+    const data = await res.json();
+    setProfile(data.profile);
+    setEditing(false);
+  };
+
+  const maxDayMs = Math.max(DAILY_LIMIT_MS, ...usageHistory.map((d) => d.msSpent));
+
   return (
     <Shell>
       <div style={{ padding: "24px 22px 28px", minHeight: 720, display: "flex", flexDirection: "column" }}>
@@ -48,29 +112,93 @@ export function ProfileClient({ profile, usageMs, pendingCount }: ProfileClientP
             <LogOut size={14} /> Log out
           </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: "50%",
-              background: "rgba(201,162,39,0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: COLORS.brass,
-              fontFamily: "'Newsreader', serif",
-              fontStyle: "italic",
-              fontSize: 18,
-            }}
-          >
-            {profile.display_name[0].toUpperCase()}
+
+        {!editing ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: avatarBg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: avatarFg,
+                  fontFamily: "'Newsreader', serif",
+                  fontStyle: "italic",
+                  fontSize: 18,
+                }}
+              >
+                {profile.display_name[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ color: COLORS.parchment, fontSize: 16, fontWeight: 500 }}>{profile.display_name}</div>
+                <div style={{ color: COLORS.slate, fontSize: 12, textTransform: "capitalize" }}>{profile.role}</div>
+                {profile.bio && <div style={{ color: COLORS.slate, fontSize: 12, marginTop: 4, maxWidth: 220 }}>{profile.bio}</div>}
+              </div>
+            </div>
+            <button
+              onClick={startEditing}
+              aria-label="Edit profile"
+              style={{ background: "none", border: `1px solid ${COLORS.line}`, borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+            >
+              <Pencil size={13} color={COLORS.parchment} />
+            </button>
           </div>
-          <div>
-            <div style={{ color: COLORS.parchment, fontSize: 16, fontWeight: 500 }}>{profile.display_name}</div>
-            <div style={{ color: COLORS.slate, fontSize: 12, textTransform: "capitalize" }}>{profile.role}</div>
+        ) : (
+          <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 24 }}>
+            <label className="mf-label">Name</label>
+            <input className="mf-input" value={formName} onChange={(e) => setFormName(e.target.value)} maxLength={40} />
+            <label className="mf-label">Bio</label>
+            <textarea
+              className="mf-input"
+              rows={2}
+              placeholder="A line about you (optional)"
+              value={formBio}
+              onChange={(e) => setFormBio(e.target.value)}
+              maxLength={140}
+              style={{ resize: "vertical" }}
+            />
+            <label className="mf-label">Avatar color</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {AVATAR_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setFormColor(c)}
+                  aria-label={`Choose color ${c}`}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    background: c,
+                    border: formColor === c ? `2px solid ${COLORS.parchment}` : "2px solid transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                />
+              ))}
+            </div>
+            {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 10px" }}>{error}</p>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={saveProfile}
+                disabled={saving}
+                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: 8, border: `1px solid ${COLORS.brass}`, background: COLORS.brass, color: COLORS.ink, fontSize: 13, cursor: "pointer" }}
+              >
+                <Check size={14} /> {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                disabled={saving}
+                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: 8, border: `1px solid ${COLORS.line}`, background: "transparent", color: COLORS.parchment, fontSize: 13, cursor: "pointer" }}
+              >
+                <X size={14} /> Cancel
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -90,6 +218,33 @@ export function ProfileClient({ profile, usageMs, pendingCount }: ProfileClientP
           >
             Reset usage (dev only)
           </button>
+
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${COLORS.line}` }}>
+            <span className="mf-label" style={{ marginBottom: 10 }}>
+              Last 7 days
+            </span>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
+              {usageHistory.map((day) => {
+                const isToday = day.date === new Date().toISOString().slice(0, 10);
+                const heightPct = Math.max(3, Math.min(100, (day.msSpent / maxDayMs) * 100));
+                return (
+                  <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div
+                      title={fmtClock(day.msSpent)}
+                      style={{
+                        width: "100%",
+                        height: `${heightPct}%`,
+                        minHeight: 3,
+                        borderRadius: 2,
+                        background: isToday ? COLORS.brass : "rgba(201,162,39,0.35)",
+                      }}
+                    />
+                    <span style={{ fontSize: 9, color: isToday ? COLORS.brass : COLORS.slate }}>{dayLabel(day.date)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <Link

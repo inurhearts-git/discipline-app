@@ -26,17 +26,8 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     Object.fromEntries(items.map((i) => [i.id, i.view_count]))
   );
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // Tracks which items we've already fired a view request for this session,
-  // so scrolling back and forth doesn't spam the endpoint. The server-side
-  // dedupe (once per user per day) is the real guarantee against inflation;
-  // this is just to avoid redundant network calls.
   const viewedRef = useRef<Set<string>>(new Set());
 
-  // Server-authoritative heartbeat (blueprint §5). The interval only sends
-  // a fixed delta — it never trusts or sends any locally-accumulated
-  // "time spent" number, so there's nothing here for a client to tamper
-  // with beyond how often it calls the endpoint, which the server also
-  // clamps per-call.
   useEffect(() => {
     const tick = setInterval(async () => {
       try {
@@ -52,17 +43,12 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           router.replace("/limit");
         }
       } catch {
-        // Network hiccup — next heartbeat will retry. We deliberately don't
-        // advance any local timer in the meantime.
+        // Network hiccup — next heartbeat will retry.
       }
     }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(tick);
   }, [router]);
 
-  // Blueprint §8: record a view once per item as it becomes the one in
-  // view. The actual dedupe (per user per day) happens server-side via the
-  // record_view() function — this effect just avoids firing it more than
-  // once per item per session.
   useEffect(() => {
     const item = items[index];
     if (!item || viewedRef.current.has(item.id)) return;
@@ -70,15 +56,9 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     fetch(`/api/content/${item.id}/view`, { method: "POST" })
       .then((res) => (res.ok ? res.json() : null))
       .then(() => {
-        // Optimistic bump — the server only actually increments once per
-        // user per day, but reflecting it immediately here keeps the UI
-        // consistent with what likely just happened; a stale count for
-        // returning-same-day views is a cosmetic detail, not a security one.
         setViewCounts((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? item.view_count) + 1 }));
       })
-      .catch(() => {
-        // Non-critical — a missed view count isn't worth surfacing an error for.
-      });
+      .catch(() => {});
   }, [index, items]);
 
   useEffect(() => {
@@ -102,7 +82,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
 
   const toggleInteraction = async (id: string, kind: "liked" | "saved") => {
     const setState = kind === "liked" ? setLiked : setSaved;
-    setState((prev) => ({ ...prev, [id]: !prev[id] })); // optimistic
+    setState((prev) => ({ ...prev, [id]: !prev[id] }));
     try {
       const res = await fetch(`/api/content/${id}/interact`, {
         method: "POST",
@@ -113,11 +93,13 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
       const data = await res.json();
       setState((prev) => ({ ...prev, [id]: data[kind] }));
     } catch {
-      setState((prev) => ({ ...prev, [id]: !prev[id] })); // revert
+      setState((prev) => ({ ...prev, [id]: !prev[id] }));
     }
   };
 
   const timeLeftMs = Math.max(0, DAILY_LIMIT_MS - msSpentToday);
+  const avatarBg = profile.avatar_color ? `${profile.avatar_color}26` : "rgba(201,162,39,0.15)";
+  const avatarFg = profile.avatar_color ?? COLORS.brass;
 
   if (items.length === 0) {
     return (
@@ -166,9 +148,9 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
               width: 28,
               height: 28,
               borderRadius: "50%",
-              background: "rgba(201,162,39,0.15)",
+              background: avatarBg,
               border: "none",
-              color: COLORS.brass,
+              color: avatarFg,
               fontFamily: "'Newsreader', serif",
               fontStyle: "italic",
               fontSize: 13,
