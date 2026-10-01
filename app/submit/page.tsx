@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send } from "lucide-react";
+import { Send, Search, Loader2 } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
 import { COLORS } from "@/lib/constants";
 import type { ContentTag, ContentType } from "@/lib/database.types";
+
+interface YouTubeResult {
+  videoId: string;
+  title: string;
+  channel: string;
+  channelId: string;
+  thumbnail: string;
+  publishedAt: string;
+}
 
 export default function SubmitPage() {
   const router = useRouter();
@@ -19,6 +28,43 @@ export default function SubmitPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // --- YouTube search state (blueprint §4) ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [results, setResults] = useState<YouTubeResult[]>([]);
+  const [selected, setSelected] = useState<YouTubeResult | null>(null);
+  const [manualEntry, setManualEntry] = useState(false);
+
+  const runSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setSearchError("");
+    setResults([]);
+    try {
+      const res = await fetch(`/api/people/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setSearchError(data.error || "Search failed.");
+        return;
+      }
+      setResults(data.results);
+      if (data.results.length === 0) setSearchError("No videos found. Try a different name.");
+    } catch {
+      setSearchError("Search failed — check your connection and try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pickResult = (r: YouTubeResult) => {
+    setSelected(r);
+    setVideoId(r.videoId);
+    setAttributedTo(r.channel);
+    setSource(`${r.channel} · YouTube`);
+    if (!text.trim()) setText(r.title);
+  };
+
   const submit = async () => {
     setError("");
     if (!text.trim() || !attributedTo.trim()) {
@@ -26,7 +72,7 @@ export default function SubmitPage() {
       return;
     }
     if (type === "video" && !videoId.trim()) {
-      setError("Add a YouTube video ID for a speech clip.");
+      setError("Search for a video and select one, or enter a video ID manually.");
       return;
     }
     setSubmitting(true);
@@ -40,6 +86,8 @@ export default function SubmitPage() {
         attributed_to: attributedTo.trim(),
         source: source.trim() || undefined,
         video_id: videoId.trim() || undefined,
+        person_name: type === "video" ? attributedTo.trim() : undefined,
+        youtube_channel_id: selected?.channelId,
       }),
     });
     setSubmitting(false);
@@ -54,7 +102,7 @@ export default function SubmitPage() {
 
   return (
     <Shell>
-      <div style={{ padding: "24px 22px 28px", minHeight: 720, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "24px 22px 28px", minHeight: 720, display: "flex", flexDirection: "column", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <button onClick={() => router.push("/profile")} aria-label="Back" style={{ background: "none", border: "none", color: COLORS.slate, cursor: "pointer", fontSize: 13 }}>
             ← Back
@@ -79,6 +127,7 @@ export default function SubmitPage() {
               onClick={() => {
                 setType(o.k);
                 setTag(o.tag);
+                setError("");
               }}
               style={{
                 flex: 1,
@@ -96,7 +145,100 @@ export default function SubmitPage() {
           ))}
         </div>
 
-        <label className="mf-label">Text</label>
+        {type === "video" && !manualEntry && (
+          <div style={{ marginBottom: 16 }}>
+            <label className="mf-label">Find a speaker&apos;s videos</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                className="mf-input"
+                style={{ marginBottom: 0 }}
+                placeholder="e.g. David Goggins"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              />
+              <button
+                onClick={runSearch}
+                disabled={searching || !searchQuery.trim()}
+                style={{
+                  flexShrink: 0,
+                  width: 42,
+                  borderRadius: 8,
+                  border: `1px solid ${COLORS.line}`,
+                  background: "transparent",
+                  color: COLORS.parchment,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                aria-label="Search"
+              >
+                {searching ? <Loader2 size={16} className="mf-spin" /> : <Search size={16} />}
+              </button>
+            </div>
+
+            {searchError && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 10px" }}>{searchError}</p>}
+
+            {results.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto", marginBottom: 10 }}>
+                {results.map((r) => (
+                  <button
+                    key={r.videoId}
+                    onClick={() => pickResult(r)}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      textAlign: "left",
+                      padding: 8,
+                      borderRadius: 8,
+                      border: `1px solid ${selected?.videoId === r.videoId ? COLORS.brass : COLORS.line}`,
+                      background: selected?.videoId === r.videoId ? "rgba(201,162,39,0.08)" : "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={r.thumbnail} alt="" width={72} height={54} style={{ borderRadius: 4, objectFit: "cover", flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: COLORS.parchment, fontSize: 12, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                        {r.title}
+                      </div>
+                      <div style={{ color: COLORS.slate, fontSize: 11, marginTop: 2 }}>{r.channel}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selected && (
+              <p style={{ color: COLORS.sage, fontSize: 12, margin: "0 0 10px" }}>
+                Selected: {selected.title}
+              </p>
+            )}
+
+            <button
+              onClick={() => setManualEntry(true)}
+              style={{ background: "none", border: "none", color: COLORS.slate, fontSize: 11, textDecoration: "underline", cursor: "pointer", padding: 0 }}
+            >
+              Or enter a video ID manually
+            </button>
+          </div>
+        )}
+
+        {type === "video" && manualEntry && (
+          <>
+            <label className="mf-label">YouTube video ID</label>
+            <input className="mf-input" placeholder="e.g. UF8uR6Z6KLc" value={videoId} onChange={(e) => setVideoId(e.target.value)} />
+            <button
+              onClick={() => setManualEntry(false)}
+              style={{ background: "none", border: "none", color: COLORS.slate, fontSize: 11, textDecoration: "underline", cursor: "pointer", padding: 0, marginBottom: 14 }}
+            >
+              Search YouTube instead
+            </button>
+          </>
+        )}
+
+        <label className="mf-label">Text{type === "video" ? " (caption shown over the clip)" : ""}</label>
         <textarea
           className="mf-input"
           rows={3}
@@ -109,12 +251,7 @@ export default function SubmitPage() {
         <input className="mf-input" placeholder="e.g. Seneca" value={attributedTo} onChange={(e) => setAttributedTo(e.target.value)} />
         <label className="mf-label">Source (optional)</label>
         <input className="mf-input" placeholder="e.g. Letters from a Stoic" value={source} onChange={(e) => setSource(e.target.value)} />
-        {type === "video" && (
-          <>
-            <label className="mf-label">YouTube video ID</label>
-            <input className="mf-input" placeholder="e.g. UF8uR6Z6KLc" value={videoId} onChange={(e) => setVideoId(e.target.value)} />
-          </>
-        )}
+
         {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
         <div style={{ flex: 1 }} />
         <Btn variant="primary" disabled={submitting} onClick={submit} style={{ justifyContent: "center", padding: "13px 16px" }}>

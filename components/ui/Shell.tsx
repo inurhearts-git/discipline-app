@@ -30,6 +30,8 @@ export function Shell({ children }: { children: ReactNode }) {
         .mf-input::placeholder { color: #6f6a60; }
         .mf-input:focus { border-color: #C9A227; }
         .mf-label { font-size: 11px; letter-spacing: 1px; color: #9C968A; margin: 0 0 6px; display:block; text-transform: uppercase; }
+        .mf-spin { animation: mf-spin-kf 1s linear infinite; }
+        @keyframes mf-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
       {children}
     </div>

@@ -15,7 +15,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("content_items")
     .select(
-      "id, type, tag, text, attributed_to, source, video_platform, video_id, maturity_rating, status, created_at"
+      "id, type, tag, text, attributed_to, source, video_platform, video_id, maturity_rating, status, view_count, created_at"
     )
     .eq("status", "approved")
     .order("created_at", { ascending: false });
@@ -28,6 +28,11 @@ export async function GET() {
 // already blocks anyone who isn't a creator/admin, and forces
 // status='pending' and submitted_by=self regardless of what's sent — this
 // route re-checks role first only to return a friendlier error message.
+//
+// Blueprint §4 "turning search results into a collection": when a video is
+// submitted with a person_name (selected from a YouTube search result),
+// find or create the matching `people` row and link content_items.person_id
+// to it, so approved videos can eventually be grouped by person.
 export async function POST(request: Request) {
   const supabase = createClient();
   const {
@@ -41,13 +46,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { type, tag, text, attributed_to, source, video_id } = body as {
+  const { type, tag, text, attributed_to, source, video_id, person_name, youtube_channel_id } = body as {
     type: ContentType;
     tag: ContentTag;
     text: string;
     attributed_to: string;
     source?: string;
     video_id?: string;
+    person_name?: string;
+    youtube_channel_id?: string;
   };
 
   if (!type || !tag || !text?.trim() || !attributed_to?.trim()) {
@@ -55,6 +62,30 @@ export async function POST(request: Request) {
   }
   if (type === "video" && !video_id?.trim()) {
     return NextResponse.json({ error: "Add a YouTube video ID for a speech clip." }, { status: 400 });
+  }
+
+  let personId: string | null = null;
+  if (type === "video" && person_name?.trim()) {
+    const name = person_name.trim();
+    const { data: existingPerson } = await supabase
+      .from("people")
+      .select("id")
+      .ilike("name", name)
+      .maybeSingle();
+
+    if (existingPerson) {
+      personId = existingPerson.id;
+    } else {
+      const { data: newPerson, error: personError } = await supabase
+        .from("people")
+        .insert({ name, youtube_channel_id: youtube_channel_id || null })
+        .select("id")
+        .single();
+      if (personError) {
+        return NextResponse.json({ error: `Couldn't save the person record: ${personError.message}` }, { status: 500 });
+      }
+      personId = newPerson.id;
+    }
   }
 
   const { data, error } = await supabase
@@ -67,6 +98,7 @@ export async function POST(request: Request) {
       source: source?.trim() || null,
       video_platform: type === "video" ? "youtube" : null,
       video_id: type === "video" ? video_id!.trim() : null,
+      person_id: personId,
       status: "pending",
       submitted_by: user.id,
     })
