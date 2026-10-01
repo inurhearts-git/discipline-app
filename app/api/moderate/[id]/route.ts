@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// POST /api/moderate/[id]  { action: "approve" | "reject" }
+// POST /api/moderate/[id]  { action: "approve" | "reject", maturity_rating?: "general" | "mature" }
 //
 // This is the fix for the prototype's biggest gap: approval used to be a
 // plain client-side write to shared storage, trustworthy for a demo but
@@ -11,6 +11,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // role claim), and only then uses the service-role client to update
 // content_items — there is no client-side update policy on content_items
 // at all (see migration), so this server check is the only path.
+//
+// Blueprint §6: on approve, maturity_rating can be confirmed or overridden
+// by the admin here — if omitted, the submitter's original rating stands.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -27,13 +30,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const action = body.action === "reject" ? "rejected" : body.action === "approve" ? "approved" : null;
   if (!action) return NextResponse.json({ error: "action must be 'approve' or 'reject'" }, { status: 400 });
 
+  const update: Record<string, unknown> = { status: action, reviewed_by: user.id };
+  if (action === "approved" && (body.maturity_rating === "general" || body.maturity_rating === "mature")) {
+    update.maturity_rating = body.maturity_rating;
+  }
+
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("content_items")
-    .update({ status: action, reviewed_by: user.id })
-    .eq("id", params.id)
-    .select()
-    .single();
+  const { data, error } = await admin.from("content_items").update(update).eq("id", params.id).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ item: data });

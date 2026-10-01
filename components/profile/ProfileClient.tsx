@@ -6,7 +6,7 @@ import Link from "next/link";
 import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
-import { COLORS, DAILY_LIMIT_MS, fmtClock } from "@/lib/constants";
+import { COLORS, DAILY_LIMIT_MS, fmtClock, isAdult } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
 interface UsageDay {
@@ -21,9 +21,6 @@ interface ProfileClientProps {
   pendingCount: number;
 }
 
-// A small palette of preset avatar colors matching the app's ink/parchment/
-// brass identity, rather than a free-form color picker — keeps every
-// avatar looking like it belongs in this app.
 const AVATAR_COLORS = [COLORS.brass, COLORS.ember, COLORS.sage, COLORS.slate, "#7A8FA6", "#A66B8F"];
 
 const dayLabel = (dateStr: string) => {
@@ -42,6 +39,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
   const [formName, setFormName] = useState(profile.display_name);
   const [formBio, setFormBio] = useState(profile.bio ?? "");
   const [formColor, setFormColor] = useState(profile.avatar_color ?? COLORS.brass);
+  const [formBirthdate, setFormBirthdate] = useState(profile.birthdate ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -68,6 +66,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
     setFormName(profile.display_name);
     setFormBio(profile.bio ?? "");
     setFormColor(profile.avatar_color ?? COLORS.brass);
+    setFormBirthdate(profile.birthdate ?? "");
     setError("");
     setEditing(true);
   };
@@ -86,6 +85,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
         display_name: formName.trim(),
         bio: formBio.trim() || null,
         avatar_color: formColor,
+        birthdate: formBirthdate || null,
       }),
     });
     setSaving(false);
@@ -100,6 +100,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
   };
 
   const maxDayMs = Math.max(DAILY_LIMIT_MS, ...usageHistory.map((d) => d.msSpent));
+  const adult = isAdult(profile.birthdate);
 
   return (
     <Shell>
@@ -161,6 +162,17 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               maxLength={140}
               style={{ resize: "vertical" }}
             />
+            <label className="mf-label">Date of birth</label>
+            <input
+              className="mf-input"
+              type="date"
+              value={formBirthdate}
+              onChange={(e) => setFormBirthdate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+            />
+            <p style={{ color: COLORS.slate, fontSize: 11, margin: "-6px 0 12px" }}>
+              Unlocks mature content when it confirms you&apos;re 18+. Never shown to anyone else.
+            </p>
             <label className="mf-label">Avatar color</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               {AVATAR_COLORS.map((c) => (
@@ -197,6 +209,17 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
                 <X size={14} /> Cancel
               </button>
             </div>
+          </div>
+        )}
+
+        {!editing && !adult && (
+          <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 12, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontSize: 12, color: COLORS.slate }}>
+              {profile.birthdate ? "Mature content is hidden." : "Add your birthdate to unlock mature content."}
+            </span>
+            <button onClick={startEditing} style={{ background: "none", border: "none", color: COLORS.brass, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>
+              Edit
+            </button>
           </div>
         )}
 

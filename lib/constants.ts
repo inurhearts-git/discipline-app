@@ -49,4 +49,20 @@ export const fmtCount = (n: number) => {
   return `${(n / 1_000_000).toFixed(1)}M`;
 };
 
+// Blueprint §6: age gating. No birthdate on file is treated as "not
+// confirmed adult" — the conservative default — rather than assuming
+// adulthood. This keeps mature content hidden until someone actually
+// provides a birthdate that implies 18+, matching the blueprint's note to
+// "keep this simple at launch" with a binary general/mature flag.
+export const isAdult = (birthdate: string | null): boolean => {
+  if (!birthdate) return false;
+  const dob = new Date(`${birthdate}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) return false;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+  return age >= 18;
+};
+
 export const todayStr = () => new Date().toISOString().slice(0, 10);

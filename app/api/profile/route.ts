@@ -13,8 +13,8 @@ export async function GET() {
   return NextResponse.json({ profile: data });
 }
 
-// PATCH — edit own interests/bio/display_name/avatar_color. `role` is
-// deliberately not accepted here; even if a client sent it, the
+// PATCH — edit own interests/bio/display_name/avatar_color/birthdate.
+// `role` is deliberately not accepted here; even if a client sent it, the
 // prevent_self_role_escalation trigger in the migration would reject the
 // write unless the caller is already an admin.
 export async function PATCH(request: Request) {
@@ -25,7 +25,7 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
-  const allowed = ["display_name", "bio", "avatar_color", "interests"] as const;
+  const allowed = ["display_name", "bio", "avatar_color", "interests", "birthdate"] as const;
   const patch: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) patch[key] = body[key];

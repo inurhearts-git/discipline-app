@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { ContentTag, ContentType } from "@/lib/database.types";
+import { isAdult } from "@/lib/constants";
+import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
 
 // GET /api/content — approved feed items, RLS already restricts this to
-// status='approved' (plus your own submissions) so there's nothing extra
-// to enforce here beyond being signed in.
+// status='approved' (plus your own submissions). Blueprint §6: mature
+// content is additionally filtered out here unless the caller's profile
+// implies 18+ — this mirrors the same filter applied in app/feed/page.tsx
+// so this route (used by anything other than the main feed page) can't
+// become a bypass.
 export async function GET() {
   const supabase = createClient();
   const {
@@ -12,7 +16,9 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { data: profile } = await supabase.from("profiles").select("birthdate").eq("id", user.id).single();
+
+  let query = supabase
     .from("content_items")
     .select(
       "id, type, tag, text, attributed_to, source, video_platform, video_id, maturity_rating, status, view_count, created_at"
@@ -20,6 +26,11 @@ export async function GET() {
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
+  if (!isAdult(profile?.birthdate ?? null)) {
+    query = query.eq("maturity_rating", "general");
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ items: data });
 }
@@ -33,6 +44,10 @@ export async function GET() {
 // submitted with a person_name (selected from a YouTube search result),
 // find or create the matching `people` row and link content_items.person_id
 // to it, so approved videos can eventually be grouped by person.
+//
+// Blueprint §6: the submitter picks an initial maturity_rating (default
+// 'general'); an admin can still confirm or override it at approval time
+// in /api/moderate/[id].
 export async function POST(request: Request) {
   const supabase = createClient();
   const {
@@ -46,7 +61,17 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { type, tag, text, attributed_to, source, video_id, person_name, youtube_channel_id } = body as {
+  const {
+    type,
+    tag,
+    text,
+    attributed_to,
+    source,
+    video_id,
+    person_name,
+    youtube_channel_id,
+    maturity_rating,
+  } = body as {
     type: ContentType;
     tag: ContentTag;
     text: string;
@@ -55,6 +80,7 @@ export async function POST(request: Request) {
     video_id?: string;
     person_name?: string;
     youtube_channel_id?: string;
+    maturity_rating?: MaturityRating;
   };
 
   if (!type || !tag || !text?.trim() || !attributed_to?.trim()) {
@@ -99,6 +125,7 @@ export async function POST(request: Request) {
       video_platform: type === "video" ? "youtube" : null,
       video_id: type === "video" ? video_id!.trim() : null,
       person_id: personId,
+      maturity_rating: maturity_rating === "mature" ? "mature" : "general",
       status: "pending",
       submitted_by: user.id,
     })

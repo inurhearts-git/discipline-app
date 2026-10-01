@@ -23,6 +23,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [birthdate, setBirthdate] = useState("");
   const [role, setRole] = useState<"viewer" | "creator">("viewer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,8 +45,16 @@ export default function SignupPage() {
     // defaulted to 'viewer'. If the person chose 'creator', apply that
     // now — the profiles update policy allows a user to edit their own
     // row (role escalation to 'admin' is separately blocked server-side).
-    if (data.user && role === "creator") {
-      await supabase.from("profiles").update({ role: "creator" }).eq("id", data.user.id);
+    // Blueprint §6: birthdate is optional here (people can add it later
+    // from their profile) but is what unlocks mature content in the feed —
+    // no birthdate means mature content stays filtered out by default.
+    if (data.user) {
+      const patch: Record<string, unknown> = {};
+      if (role === "creator") patch.role = "creator";
+      if (birthdate) patch.birthdate = birthdate;
+      if (Object.keys(patch).length > 0) {
+        await supabase.from("profiles").update(patch).eq("id", data.user.id);
+      }
     }
     setLoading(false);
     router.replace("/onboarding");
@@ -66,6 +75,11 @@ export default function SignupPage() {
           <input className="mf-input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           <label className="mf-label">Password</label>
           <input className="mf-input" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <label className="mf-label">Date of birth (optional)</label>
+          <input className="mf-input" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+          <p style={{ color: COLORS.slate, fontSize: 11, margin: "-6px 0 14px" }}>
+            Only used to show age-appropriate content. You can skip this and add it later.
+          </p>
           <label className="mf-label" style={{ marginTop: 8 }}>
             Role
           </label>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DAILY_LIMIT_MS, todayStr } from "@/lib/constants";
+import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
 import { FeedClient } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
@@ -32,12 +32,19 @@ export default async function FeedPage() {
 
   let itemsQuery = supabase
     .from("content_items")
-    .select("id, type, tag, text, attributed_to, source, video_platform, video_id, view_count")
+    .select("id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
   if (profile.interests?.length) {
     itemsQuery = itemsQuery.in("tag", profile.interests);
+  }
+
+  // Blueprint §6: "Feed query filters out mature content unless
+  // users.birthdate implies 18+." No birthdate on file means not filtered
+  // in -- mature stays hidden by default.
+  if (!isAdult(profile.birthdate)) {
+    itemsQuery = itemsQuery.eq("maturity_rating", "general");
   }
 
   const { data: items } = await itemsQuery.returns<ContentItem[]>();

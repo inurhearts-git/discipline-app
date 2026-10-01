@@ -6,7 +6,7 @@ import { Send, Search, Loader2 } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
 import { COLORS } from "@/lib/constants";
-import type { ContentTag, ContentType } from "@/lib/database.types";
+import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
 
 interface YouTubeResult {
   videoId: string;
@@ -25,6 +25,7 @@ export default function SubmitPage() {
   const [attributedTo, setAttributedTo] = useState("");
   const [source, setSource] = useState("");
   const [videoId, setVideoId] = useState("");
+  const [maturityRating, setMaturityRating] = useState<MaturityRating>("general");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,6 +89,7 @@ export default function SubmitPage() {
         video_id: videoId.trim() || undefined,
         person_name: type === "video" ? attributedTo.trim() : undefined,
         youtube_channel_id: selected?.channelId,
+        maturity_rating: maturityRating,
       }),
     });
     setSubmitting(false);
@@ -251,6 +253,36 @@ export default function SubmitPage() {
         <input className="mf-input" placeholder="e.g. Seneca" value={attributedTo} onChange={(e) => setAttributedTo(e.target.value)} />
         <label className="mf-label">Source (optional)</label>
         <input className="mf-input" placeholder="e.g. Letters from a Stoic" value={source} onChange={(e) => setSource(e.target.value)} />
+
+        <label className="mf-label">Maturity rating</label>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {(
+            [
+              { k: "general" as MaturityRating, l: "General" },
+              { k: "mature" as MaturityRating, l: "Mature" },
+            ]
+          ).map((o) => (
+            <button
+              key={o.k}
+              onClick={() => setMaturityRating(o.k)}
+              style={{
+                flex: 1,
+                padding: "8px 6px",
+                borderRadius: 8,
+                fontSize: 12,
+                border: `1px solid ${maturityRating === o.k ? (o.k === "mature" ? COLORS.ember : COLORS.brass) : COLORS.line}`,
+                background: maturityRating === o.k ? (o.k === "mature" ? "rgba(194,84,46,0.1)" : "rgba(201,162,39,0.08)") : "transparent",
+                color: COLORS.parchment,
+                cursor: "pointer",
+              }}
+            >
+              {o.l}
+            </button>
+          ))}
+        </div>
+        <p style={{ color: COLORS.slate, fontSize: 11, margin: "-6px 0 14px" }}>
+          An admin can adjust this at review time. Mature content is hidden from anyone who hasn&apos;t confirmed they&apos;re 18+.
+        </p>
 
         {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
         <div style={{ flex: 1 }} />
