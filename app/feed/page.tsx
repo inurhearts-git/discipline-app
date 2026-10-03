@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
-import { FeedClient } from "@/components/feed/FeedClient";
+import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
-const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating";
+const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id";
 
 export default async function FeedPage({
   searchParams,
@@ -81,6 +81,12 @@ export default async function FeedPage({
     saved[row.content_id] = row.saved;
   }
 
+  // Music library (empty until migration 0004 is run and tracks are added)
+  const { data: trackRows } = await supabase
+    .from("music_tracks")
+    .select("id, title, artist, audio_url, mood_tags")
+    .eq("is_active", true);
+
   return (
     <FeedClient
       items={items}
@@ -88,6 +94,7 @@ export default async function FeedPage({
       initialLiked={liked}
       initialSaved={saved}
       initialMsSpentToday={msSpentToday}
+      tracks={(trackRows ?? []) as MusicTrack[]}
     />
   );
 }
