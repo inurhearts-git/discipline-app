@@ -5,7 +5,13 @@ import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
 import { FeedClient } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
-export default async function FeedPage() {
+const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating";
+
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: { item?: string; tag?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -16,9 +22,6 @@ export default async function FeedPage() {
   if (!profile) redirect("/login");
   if (!profile.onboarded) redirect("/onboarding");
 
-  // Usage is read with the admin client because there's no client-facing
-  // read policy on usage_sessions beyond "your own row" — using the same
-  // server-authoritative path as the heartbeat route keeps this consistent.
   const admin = createAdminClient();
   const { data: usage } = await admin
     .from("usage_sessions")
@@ -30,24 +33,41 @@ export default async function FeedPage() {
   const msSpentToday = usage?.ms_spent ?? 0;
   if (msSpentToday >= DAILY_LIMIT_MS) redirect("/limit");
 
+  const adult = isAdult(profile.birthdate);
+
   let itemsQuery = supabase
     .from("content_items")
-    .select("id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating")
+    .select(ITEM_COLUMNS)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
-  if (profile.interests?.length) {
+  // A topic picked from Explore overrides the saved interests for this visit.
+  if (searchParams.tag) {
+    itemsQuery = itemsQuery.eq("tag", searchParams.tag);
+  } else if (profile.interests?.length) {
     itemsQuery = itemsQuery.in("tag", profile.interests);
   }
 
-  // Blueprint §6: "Feed query filters out mature content unless
-  // users.birthdate implies 18+." No birthdate on file means not filtered
-  // in -- mature stays hidden by default.
-  if (!isAdult(profile.birthdate)) {
+  if (!adult) {
     itemsQuery = itemsQuery.eq("maturity_rating", "general");
   }
 
-  const { data: items } = await itemsQuery.returns<ContentItem[]>();
+  const { data } = await itemsQuery.returns<ContentItem[]>();
+  let items = data ?? [];
+
+  // Opened from an Explore card: put that item first so the feed starts there.
+  const startId = searchParams.item;
+  if (startId) {
+    const found = items.find((i) => i.id === startId);
+    if (found) {
+      items = [found, ...items.filter((i) => i.id !== startId)];
+    } else {
+      let one = supabase.from("content_items").select(ITEM_COLUMNS).eq("id", startId).eq("status", "approved");
+      if (!adult) one = one.eq("maturity_rating", "general");
+      const { data: extra } = await one.maybeSingle<ContentItem>();
+      if (extra) items = [extra, ...items];
+    }
+  }
 
   const { data: interactions } = await supabase
     .from("user_content_interactions")
@@ -63,7 +83,7 @@ export default async function FeedPage() {
 
   return (
     <FeedClient
-      items={items ?? []}
+      items={items}
       profile={profile}
       initialLiked={liked}
       initialSaved={saved}

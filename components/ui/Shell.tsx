@@ -1,5 +1,6 @@
 import { COLORS } from "@/lib/constants";
 import type { ReactNode } from "react";
+import { BottomNav } from "@/components/ui/BottomNav";
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
@@ -14,7 +15,6 @@ export function Shell({ children }: { children: ReactNode }) {
         borderRadius: 20,
         overflow: "hidden",
         boxShadow: "0 0 0 1px rgba(246,241,231,0.08)",
-        minHeight: 720,
       }}
     >
       <style>{`
@@ -33,7 +33,9 @@ export function Shell({ children }: { children: ReactNode }) {
         .mf-spin { animation: mf-spin-kf 1s linear infinite; }
         @keyframes mf-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
-      {children}
+      {/* Wrapper keeps every page's absolute-positioned elements inside the content area, above the tab bar */}
+      <div style={{ position: "relative", minHeight: 720 }}>{children}</div>
+      <BottomNav />
     </div>
   );
 }
