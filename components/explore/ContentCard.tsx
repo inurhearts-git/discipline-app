@@ -2,10 +2,12 @@ import Link from "next/link";
 import { Eye } from "lucide-react";
 import { COLORS, fmtCount, tagColor } from "@/lib/constants";
 
+export type Tag = Parameters<typeof tagColor>[0];
+
 export interface CardItem {
   id: string;
   type: string;
-  tag: string;
+  tag: Tag;
   text: string;
   attributed_to: string;
   video_id?: string | null;

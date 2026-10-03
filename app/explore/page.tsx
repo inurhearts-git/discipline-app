@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { COLORS, isAdult, tagColor } from "@/lib/constants";
 import { Shell, Logo } from "@/components/ui/Shell";
-import { ContentCard, type CardItem } from "@/components/explore/ContentCard";
+import { ContentCard, type CardItem, type Tag } from "@/components/explore/ContentCard";
 
 type Row = CardItem & { person_id: string | null };
 
@@ -46,7 +46,7 @@ export default async function ExplorePage() {
   const newest = items.slice(0, 10);
   const trending = [...items].sort((a, b) => b.view_count - a.view_count).slice(0, 10);
 
-  const tagCounts = new Map<string, number>();
+  const tagCounts = new Map<Tag, number>();
   items.forEach((i) => tagCounts.set(i.tag, (tagCounts.get(i.tag) ?? 0) + 1));
 
   const people = new Map<string, { name: string; count: number }>();
