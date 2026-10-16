@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
-import { COLORS, DAILY_LIMIT_MS, fmtClock, isAdult } from "@/lib/constants";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { COLORS, DAILY_LIMIT_MS, alpha, fmtClock, isAdult } from "@/lib/constants";
 import type { Profile } from "@/lib/database.types";
 
 interface UsageDay {
@@ -21,7 +22,10 @@ interface ProfileClientProps {
   pendingCount: number;
 }
 
-const AVATAR_COLORS = [COLORS.brass, COLORS.ember, COLORS.sage, COLORS.slate, "#7A8FA6", "#A66B8F"];
+// Literal hex on purpose: these values are saved to profiles.avatar_color,
+// so they must never be CSS-variable strings.
+const DEFAULT_AVATAR = "#C9A227";
+const AVATAR_COLORS = [DEFAULT_AVATAR, "#C2542E", "#8CA07A", "#9C968A", "#7A8FA6", "#A66B8F"];
 
 const dayLabel = (dateStr: string) => {
   const d = new Date(`${dateStr}T00:00:00`);
@@ -38,13 +42,13 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
   const [editing, setEditing] = useState(false);
   const [formName, setFormName] = useState(profile.display_name);
   const [formBio, setFormBio] = useState(profile.bio ?? "");
-  const [formColor, setFormColor] = useState(profile.avatar_color ?? COLORS.brass);
+  const [formColor, setFormColor] = useState(profile.avatar_color ?? DEFAULT_AVATAR);
   const [formBirthdate, setFormBirthdate] = useState(profile.birthdate ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const avatarBg = profile.avatar_color ? `${profile.avatar_color}26` : "rgba(201,162,39,0.15)";
-  const avatarFg = profile.avatar_color ?? COLORS.brass;
+  const avatarFg = profile.avatar_color ?? DEFAULT_AVATAR;
+  const avatarBg = alpha(avatarFg, 15);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -65,7 +69,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
   const startEditing = () => {
     setFormName(profile.display_name);
     setFormBio(profile.bio ?? "");
-    setFormColor(profile.avatar_color ?? COLORS.brass);
+    setFormColor(profile.avatar_color ?? DEFAULT_AVATAR);
     setFormBirthdate(profile.birthdate ?? "");
     setError("");
     setEditing(true);
@@ -197,7 +201,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               <button
                 onClick={saveProfile}
                 disabled={saving}
-                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: 8, border: `1px solid ${COLORS.brass}`, background: COLORS.brass, color: COLORS.ink, fontSize: 13, cursor: "pointer" }}
+                style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px", borderRadius: 8, border: `1px solid ${COLORS.brass}`, background: COLORS.brass, color: COLORS.onBrass, fontSize: 13, cursor: "pointer" }}
               >
                 <Check size={14} /> {saving ? "Saving…" : "Save"}
               </button>
@@ -259,7 +263,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
                         height: `${heightPct}%`,
                         minHeight: 3,
                         borderRadius: 2,
-                        background: isToday ? COLORS.brass : "rgba(201,162,39,0.35)",
+                        background: isToday ? COLORS.brass : alpha(COLORS.brass, 35),
                       }}
                     />
                     <span style={{ fontSize: 9, color: isToday ? COLORS.brass : COLORS.slate }}>{dayLabel(day.date)}</span>
@@ -268,6 +272,14 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               })}
             </div>
           </div>
+        </div>
+
+        <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Palette size={14} color={COLORS.brass} />
+            <span style={{ fontSize: 12, color: COLORS.parchment }}>Appearance</span>
+          </div>
+          <ThemeToggle />
         </div>
 
         <Link
@@ -301,7 +313,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Review submissions</div>
             </div>
             {pendingCount > 0 && (
-              <span style={{ background: COLORS.ember, color: COLORS.parchment, fontSize: 11, borderRadius: 10, padding: "2px 7px" }}>{pendingCount}</span>
+              <span style={{ background: COLORS.ember, color: COLORS.onEmber, fontSize: 11, borderRadius: 10, padding: "2px 7px" }}>{pendingCount}</span>
             )}
           </Link>
         )}

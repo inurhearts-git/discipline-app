@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX } from "lucide-react";
+import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame } from "lucide-react";
 import { Shell, Logo } from "@/components/ui/Shell";
-import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, fmtClock, fmtCount, tagColor } from "@/lib/constants";
+import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCount, tagColor } from "@/lib/constants";
 import type { ContentItem, Profile } from "@/lib/database.types";
+import { STREAK_MIN_MS } from "@/lib/streak";
+import { MOODS, type MoodId } from "@/lib/moods";
 
 export interface MusicTrack {
   id: string;
@@ -23,6 +25,8 @@ interface FeedClientProps {
   initialSaved: Record<string, boolean>;
   initialMsSpentToday: number;
   tracks: MusicTrack[];
+  streakBase: number;
+  activeMood: string | null;
 }
 
 // Never shorter than the old 720px; grows to fill taller phone screens.
@@ -38,7 +42,7 @@ function startTrack(a: HTMLAudioElement, track: MusicTrack) {
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
-export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks }: FeedClientProps) {
+export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood }: FeedClientProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -250,9 +254,42 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     }
   };
 
+  // Mood picker: shown once a day on open (not when arriving from Explore or a shared link)
+  const [moodOpen, setMoodOpen] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.has("item") || q.has("tag") || q.has("mood")) return;
+      const day = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem("mf-mood-day") !== day) setMoodOpen(true);
+    } catch {
+      // storage unavailable: skip the picker
+    }
+  }, []);
+  const pickMood = (id: MoodId | null) => {
+    try {
+      localStorage.setItem("mf-mood-day", new Date().toISOString().slice(0, 10));
+    } catch {
+      // ignore
+    }
+    if (id) window.location.assign(`/feed?mood=${id}`);
+    else setMoodOpen(false);
+  };
+
+  // Streak: consecutive days (ending yesterday) with 2+ minutes in the app, plus today once it counts
+  const todayCounted = msSpentToday >= STREAK_MIN_MS;
+  const streak = streakBase + (todayCounted ? 1 : 0);
+  const startedCountedRef = useRef(initialMsSpentToday >= STREAK_MIN_MS);
+  useEffect(() => {
+    if (!todayCounted || startedCountedRef.current) return;
+    startedCountedRef.current = true;
+    setToast(`🔥 Day ${streak} streak`);
+    setTimeout(() => setToast(null), 2500);
+  }, [todayCounted, streak]);
+
   const timeLeftMs = Math.max(0, DAILY_LIMIT_MS - msSpentToday);
-  const avatarBg = profile.avatar_color ? `${profile.avatar_color}26` : "rgba(201,162,39,0.15)";
-  const avatarFg = profile.avatar_color ?? COLORS.brass;
+  const avatarFg = profile.avatar_color ?? "#C9A227";
+  const avatarBg = alpha(avatarFg, 15);
 
   if (items.length === 0) {
     return (
@@ -270,6 +307,9 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     );
   }
 
+  // Over a video tile the overlays stay in the dark palette so text is readable on the thumbnail.
+  const onVideo = items[index]?.type === "video";
+
   return (
     <Shell>
       <style>{`
@@ -279,6 +319,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
 
       {/* Slim transparent header */}
       <div
+        data-theme={onVideo ? "dark" : undefined}
         style={{
           position: "absolute",
           top: 0,
@@ -289,7 +330,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           alignItems: "center",
           justifyContent: "space-between",
           padding: "14px 16px 24px",
-          background: "linear-gradient(to bottom, rgba(20,17,15,0.7), rgba(20,17,15,0))",
+          background: `linear-gradient(to bottom, ${alpha(COLORS.ink, 80)}, ${alpha(COLORS.ink, 0)})`,
           pointerEvents: "none",
         }}
       >
@@ -297,11 +338,27 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           <Logo />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, pointerEvents: "auto" }}>
+          <span
+            title={todayCounted ? "Streak counted for today" : "Spend 2 minutes here today to keep your streak"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "4px 9px",
+              borderRadius: 12,
+              background: alpha(COLORS.ink, 55),
+              color: todayCounted ? COLORS.ember : COLORS.slate,
+            }}
+          >
+            <Flame size={13} fill={todayCounted ? COLORS.ember : "none"} /> {streak}
+          </span>
           {tracks.length > 0 && (
             <button
               onClick={toggleMute}
               aria-label={muted ? "Unmute music" : "Mute music"}
-              style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(20,17,15,0.55)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ width: 28, height: 28, borderRadius: "50%", background: alpha(COLORS.ink, 55), border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
               {muted ? <VolumeX size={14} color={COLORS.slate} /> : <Volume2 size={14} color={COLORS.parchment} />}
             </button>
@@ -315,7 +372,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
               gap: 4,
               padding: "4px 9px",
               borderRadius: 12,
-              background: "rgba(20,17,15,0.55)",
+              background: alpha(COLORS.ink, 55),
             }}
           >
             <Clock size={12} /> {fmtClock(timeLeftMs)}
@@ -345,9 +402,13 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         {items.map((item, i) => {
           const color = tagColor(item.tag);
           const isVideo = item.type === "video";
+          // Text tiles: the quote is the hero, centred, sized by length.
+          const len = item.text.length;
+          const quoteSize = isVideo ? (len > 70 ? 21 : 26) : len > 180 ? 22 : len > 110 ? 26 : len > 60 ? 30 : 34;
           return (
             <div
               key={item.id}
+              data-theme={isVideo ? "dark" : undefined}
               onClick={() => onTileTap(item)}
               style={{
                 height: "100%",
@@ -356,7 +417,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                 overflow: "hidden",
                 background: isVideo
                   ? `linear-gradient(180deg, rgba(20,17,15,0.15) 0%, rgba(20,17,15,0.1) 40%, rgba(20,17,15,0.92) 100%), url(https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg) center/cover no-repeat`
-                  : `radial-gradient(circle at 30% 20%, ${COLORS.ink2} 0%, ${COLORS.ink} 70%)`,
+                  : `radial-gradient(circle at 25% 15%, ${alpha(COLORS.brass, 12)} 0%, transparent 55%), radial-gradient(circle at 30% 20%, ${COLORS.ink2} 0%, ${COLORS.ink} 70%)`,
               }}
             >
               {isVideo && playing !== i && (
@@ -427,9 +488,20 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                 </div>
               )}
 
-              {/* Caption, bottom-left */}
-              <div style={{ position: "absolute", left: 0, right: 76, bottom: 0, padding: "0 16px 22px 18px", zIndex: 6, pointerEvents: playing === i ? "none" : "auto" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              {/* Caption: bottom-left on video tiles, centred on text tiles */}
+              <div
+                style={
+                  isVideo
+                    ? { position: "absolute", left: 0, right: 76, bottom: 0, padding: "0 16px 22px 18px", zIndex: 6, pointerEvents: playing === i ? "none" : "auto" }
+                    : { position: "absolute", top: 0, bottom: 0, left: 0, right: 64, padding: "76px 12px 36px 24px", display: "flex", flexDirection: "column", justifyContent: "center", zIndex: 6 }
+                }
+              >
+                {!isVideo && (
+                  <span aria-hidden style={{ order: 0, fontFamily: "'Newsreader', serif", fontSize: 72, lineHeight: 0.7, height: 34, color: COLORS.brass, opacity: 0.55 }}>
+                    &ldquo;
+                  </span>
+                )}
+                <div style={{ order: isVideo ? 0 : 2, display: "flex", alignItems: "center", gap: 8, marginBottom: isVideo ? 10 : 0, marginTop: isVideo ? 0 : 22, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, color: COLORS.parchment, fontWeight: 600 }}>{item.attributed_to}</span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", border: `1px solid ${color}`, borderRadius: 3 }}>
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: color }} />
@@ -441,21 +513,22 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                     fontFamily: "'Newsreader', serif",
                     fontStyle: "italic",
                     fontWeight: 400,
-                    fontSize: item.text.length > 70 ? 21 : 26,
+                    order: 1,
+                    fontSize: quoteSize,
                     lineHeight: 1.35,
                     color: COLORS.parchment,
                     margin: "0 0 8px",
                     display: "-webkit-box",
-                    WebkitLineClamp: 6,
+                    WebkitLineClamp: isVideo ? 6 : 10,
                     WebkitBoxOrient: "vertical",
                     overflow: "hidden",
                   }}
                 >
                   {item.text}
                 </p>
-                {item.source && <span style={{ fontSize: 12, color: COLORS.slate }}>{item.source}</span>}
+                {item.source && <span style={{ order: 3, marginTop: isVideo ? 0 : 6, fontSize: 12, color: COLORS.slate }}>{item.source}</span>}
                 {i === index && currentTrack && unlocked && !muted && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: COLORS.slate }}>
+                  <div style={{ order: 4, marginTop: isVideo ? 8 : 18, fontSize: 11, color: COLORS.slate }}>
                     ♪ {currentTrack.title}
                     {currentTrack.artist ? ` · ${currentTrack.artist}` : ""}
                   </div>
@@ -473,7 +546,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                       width: 42,
                       height: 42,
                       borderRadius: "50%",
-                      background: "rgba(201,162,39,0.18)",
+                      background: alpha(COLORS.brass, 18),
                       border: `1.5px solid ${COLORS.brass}`,
                       color: COLORS.brass,
                       display: "flex",
@@ -530,10 +603,44 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         })}
       </div>
 
+      {activeMood && (
+        <button
+          onClick={() => setMoodOpen(true)}
+          data-theme={onVideo ? "dark" : undefined}
+          style={{ position: "absolute", top: 58, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: "none", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
+        >
+          {MOODS.find((m) => m.id === activeMood)?.emoji} {MOODS.find((m) => m.id === activeMood)?.label} · change
+        </button>
+      )}
+
+      {moodOpen && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 40, background: alpha(COLORS.ink, 97), display: "flex", flexDirection: "column", justifyContent: "center", padding: 28 }}>
+          <p style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 30, color: COLORS.parchment, margin: "0 0 6px" }}>How are you feeling?</p>
+          <p style={{ fontSize: 13, color: COLORS.slate, margin: "0 0 22px" }}>We&apos;ll start your feed with what fits.</p>
+          {MOODS.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => pickMood(m.id)}
+              style={{ textAlign: "left", padding: "14px 16px", marginBottom: 10, borderRadius: 12, border: `1px solid ${COLORS.line}`, background: "var(--fill)", color: COLORS.parchment, fontSize: 15, cursor: "pointer" }}
+            >
+              <span style={{ marginRight: 10 }}>{m.emoji}</span>
+              {m.label}
+            </button>
+          ))}
+          <button
+            onClick={() => pickMood(null)}
+            style={{ marginTop: 6, background: "none", border: "none", color: COLORS.slate, fontSize: 13, cursor: "pointer" }}
+          >
+            Skip for now
+          </button>
+        </div>
+      )}
+
       {tracks.length > 0 && !unlocked && !muted && items[index]?.type !== "video" && (
         <button
           onClick={unlock}
-          style={{ position: "absolute", top: 58, left: "50%", transform: "translateX(-50%)", zIndex: 25, padding: "6px 12px", borderRadius: 14, border: `1px solid ${COLORS.line}`, background: "rgba(20,17,15,0.8)", color: COLORS.parchment, fontSize: 12, cursor: "pointer" }}
+          data-theme={onVideo ? "dark" : undefined}
+          style={{ position: "absolute", top: 58, left: "50%", transform: "translateX(-50%)", zIndex: 25, padding: "6px 12px", borderRadius: 14, border: `1px solid ${COLORS.line}`, background: alpha(COLORS.ink, 80), color: COLORS.parchment, fontSize: 12, cursor: "pointer" }}
         >
           ♪ Tap for sound
         </button>
@@ -548,7 +655,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
             transform: "translateX(-50%)",
             padding: "8px 14px",
             borderRadius: 16,
-            background: "rgba(20,17,15,0.9)",
+            background: alpha(COLORS.ink, 90),
             border: `1px solid ${COLORS.line}`,
             color: COLORS.parchment,
             fontSize: 12,

@@ -1,21 +1,36 @@
 import type { ContentTag } from "./database.types";
 
-// Ported 1:1 from motivation-feed.jsx — the ink/parchment/brass palette
-// is the visual identity of the app; keep this file as the single source
-// of truth for it.
+// The ink/parchment/brass palette is the visual identity of the app; keep
+// this file as the single source of truth for it.
+//
+// Each entry points at a CSS variable defined in app/globals.css, so the
+// same inline styles work in dark and light mode. Naming note: "ink" is
+// the app's background colour and "parchment" its main text colour, in
+// BOTH themes (in light mode ink is the cream one and parchment the dark).
+//
+// Because these are now "var(--x)" strings, never:
+//   - save a COLORS value to the database (use a literal hex instead)
+//   - append hex alpha like `${COLORS.brass}26` (use alpha() below)
 export const COLORS = {
-  ink: "#14110F",
-  ink2: "#1C1814",
-  ink3: "#231E18",
-  parchment: "#F6F1E7",
-  brass: "#C9A227",
-  brassDim: "#8A701D",
-  ember: "#C2542E",
-  sage: "#8CA07A",
-  slate: "#9C968A",
-  line: "rgba(246,241,231,0.14)",
-  danger: "#C24E4E",
+  ink: "var(--ink)",
+  ink2: "var(--ink2)",
+  ink3: "var(--ink3)",
+  parchment: "var(--parchment)",
+  brass: "var(--brass)",
+  brassDim: "var(--brassDim)",
+  ember: "var(--ember)",
+  sage: "var(--sage)",
+  slate: "var(--slate)",
+  line: "var(--line)",
+  danger: "var(--danger)",
+  // Fixed in both themes: text that sits ON a brass or ember fill.
+  onBrass: "#14110F",
+  onEmber: "#F6F1E7",
 } as const;
+
+// Transparent version of any colour (hex or var()). pct is 0-100.
+export const alpha = (color: string, pct: number) =>
+  `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 
 export const CATEGORIES: { key: ContentTag; label: string; desc: string }[] = [
   { key: "QUOTE", label: "Quotes", desc: "Sharp lines from thinkers and doers" },

@@ -1,10 +1,54 @@
+/* Dark is the default. Light overrides it. Any element with
+   data-theme="dark" (the Shell does this on /feed) re-applies the dark
+   values locally, even when the page is in light mode. */
+:root,
+[data-theme="dark"] {
+  --page: #0b0a09;
+  --ink: #14110f;
+  --ink2: #1c1814;
+  --ink3: #231e18;
+  --parchment: #f6f1e7;
+  --brass: #c9a227;
+  --brassDim: #8a701d;
+  --ember: #c2542e;
+  --sage: #8ca07a;
+  --slate: #9c968a;
+  --line: rgba(246, 241, 231, 0.14);
+  --fill: rgba(246, 241, 231, 0.05);
+  --placeholder: #6f6a60;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --page: #e9e2d3;
+  --ink: #f6f1e7;
+  --ink2: #ede6d8;
+  --ink3: #e4dccb;
+  --parchment: #14110f;
+  --brass: #96781a;
+  --brassDim: #c9a227;
+  --ember: #b04824;
+  --sage: #5f7a4c;
+  --slate: #6b655a;
+  --line: rgba(20, 17, 15, 0.16);
+  --fill: rgba(20, 17, 15, 0.04);
+  --placeholder: #9a9487;
+  --danger: #b03a3a;
+  color-scheme: light;
+}
+
+:root,
+[data-theme="dark"] {
+  --danger: #c24e4e;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #0b0a09;
+  background: var(--page);
   min-height: 100vh;
   display: flex;
   align-items: flex-start;

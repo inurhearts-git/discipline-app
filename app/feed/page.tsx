@@ -2,15 +2,17 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
+import { streakThroughYesterday } from "@/lib/streak";
+import { isMoodId } from "@/lib/moods";
 import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
-const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id";
+const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id, moods";
 
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: { item?: string; tag?: string };
+  searchParams: { item?: string; tag?: string; mood?: string };
 }) {
   const supabase = createClient();
   const {
@@ -31,6 +33,15 @@ export default async function FeedPage({
     .maybeSingle();
 
   const msSpentToday = usage?.ms_spent ?? 0;
+
+  const { data: history } = await admin
+    .from("usage_sessions")
+    .select("date, ms_spent")
+    .eq("user_id", user.id)
+    .lt("date", todayStr())
+    .order("date", { ascending: false })
+    .limit(400);
+  const streakBase = streakThroughYesterday(history ?? [], todayStr());
   if (msSpentToday >= DAILY_LIMIT_MS) redirect("/limit");
 
   const adult = isAdult(profile.birthdate);
@@ -54,6 +65,13 @@ export default async function FeedPage({
 
   const { data } = await itemsQuery.returns<ContentItem[]>();
   let items = data ?? [];
+
+  // Mood-first entry: items tagged with the chosen mood come first; nothing is hidden.
+  const mood = searchParams.mood && isMoodId(searchParams.mood) ? searchParams.mood : null;
+  if (mood) {
+    const hasMood = (i: ContentItem) => ((i as ContentItem & { moods?: string[] | null }).moods ?? []).includes(mood);
+    items = [...items.filter(hasMood), ...items.filter((i) => !hasMood(i))];
+  }
 
   // Opened from an Explore card: put that item first so the feed starts there.
   const startId = searchParams.item;
@@ -94,6 +112,8 @@ export default async function FeedPage({
       initialLiked={liked}
       initialSaved={saved}
       initialMsSpentToday={msSpentToday}
+      streakBase={streakBase}
+      activeMood={mood}
       tracks={(trackRows ?? []) as MusicTrack[]}
     />
   );
