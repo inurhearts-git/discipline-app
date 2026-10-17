@@ -7,7 +7,7 @@ import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame }
 import { Shell, Logo } from "@/components/ui/Shell";
 import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCount, tagColor } from "@/lib/constants";
 import type { ContentItem, Profile } from "@/lib/database.types";
-import { STREAK_MIN_MS } from "@/lib/streak";
+import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 
 // Remember recently viewed items in a cookie so the server can rotate the feed
@@ -295,9 +295,15 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const todayCounted = msSpentToday >= STREAK_MIN_MS;
   const streak = streakBase + (todayCounted ? 1 : 0);
   const startedCountedRef = useRef(initialMsSpentToday >= STREAK_MIN_MS);
+  const [celebrate, setCelebrate] = useState<number | null>(null);
   useEffect(() => {
     if (!todayCounted || startedCountedRef.current) return;
     startedCountedRef.current = true;
+    // Milestone days (3, 7, 14, 30...) get a full-screen moment instead of the toast.
+    if (milestoneAt(streak)) {
+      setCelebrate(streak);
+      return;
+    }
     setToast(`🔥 Day ${streak} streak`);
     setTimeout(() => setToast(null), 2500);
   }, [todayCounted, streak]);
@@ -660,6 +666,46 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         >
           ♪ Tap for sound
         </button>
+      )}
+
+      {celebrate !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Streak milestone"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 45,
+            background: alpha(COLORS.ink, 94),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: 32,
+          }}
+        >
+          <style>{`@keyframes mf-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}@media (prefers-reduced-motion:no-preference){.mf-pop{animation:mf-pop .5s cubic-bezier(.2,.9,.3,1.2) both}}`}</style>
+          <div
+            className="mf-pop"
+            style={{ width: 76, height: 76, borderRadius: "50%", background: alpha(COLORS.ember, 14), display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <Flame size={36} color={COLORS.ember} fill={COLORS.ember} />
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.ember, margin: "20px 0 6px" }}>{celebrate}-day streak</p>
+          <p style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 30, lineHeight: 1.2, color: COLORS.parchment, margin: "0 0 8px" }}>
+            {milestoneCopy(celebrate).title}
+          </p>
+          <p style={{ fontSize: 14, color: COLORS.slate, margin: "0 0 28px" }}>{milestoneCopy(celebrate).line}</p>
+          <button
+            autoFocus
+            onClick={() => setCelebrate(null)}
+            style={{ padding: "11px 26px", borderRadius: 10, border: `1px solid ${COLORS.brass}`, background: COLORS.brass, color: COLORS.onBrass, fontSize: 14, cursor: "pointer" }}
+          >
+            Keep going
+          </button>
+        </div>
       )}
 
       {toast && (

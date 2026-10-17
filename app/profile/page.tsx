@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayStr } from "@/lib/constants";
+import { bestStreak, streakThroughYesterday } from "@/lib/streak";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 import type { Profile } from "@/lib/database.types";
 
@@ -41,6 +42,19 @@ export default async function ProfilePage() {
   const byDate = new Map((usageRows ?? []).map((r) => [r.date, r.ms_spent]));
   const usageHistory = dateList.map((date) => ({ date, msSpent: byDate.get(date) ?? 0 }));
 
+  // Streak numbers. "Base" is the run ending yesterday and "bestPast" the longest
+  // run before today; the client adds today live (so the dev usage reset keeps it right).
+  const todayKey = todayStr();
+  const { data: allUsage } = await admin
+    .from("usage_sessions")
+    .select("date, ms_spent")
+    .eq("user_id", user.id)
+    .order("date", { ascending: false })
+    .limit(1000);
+  const pastRows = (allUsage ?? []).filter((r) => r.date < todayKey);
+  const streakBase = streakThroughYesterday(pastRows, todayKey);
+  const bestPast = bestStreak(pastRows);
+
   let pendingCount = 0;
   if (profile.role === "admin") {
     const { count } = await supabase
@@ -55,6 +69,8 @@ export default async function ProfilePage() {
       profile={profile}
       usageMs={usage?.ms_spent ?? 0}
       usageHistory={usageHistory}
+      streakBase={streakBase}
+      bestPast={bestPast}
       pendingCount={pendingCount}
     />
   );

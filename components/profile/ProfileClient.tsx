@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { COLORS, DAILY_LIMIT_MS, alpha, fmtClock, isAdult } from "@/lib/constants";
+import { STREAK_MILESTONES, STREAK_MIN_MS, nextMilestone } from "@/lib/streak";
 import type { Profile } from "@/lib/database.types";
 
 interface UsageDay {
@@ -19,6 +20,8 @@ interface ProfileClientProps {
   profile: Profile;
   usageMs: number;
   usageHistory: UsageDay[];
+  streakBase: number; // consecutive qualifying days ending yesterday
+  bestPast: number; // longest run before today
   pendingCount: number;
 }
 
@@ -32,7 +35,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, pendingCount }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -102,6 +105,15 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
     setProfile(data.profile);
     setEditing(false);
   };
+
+  // Streak: today joins the run once it passes the 2-minute mark.
+  const todayCounted = localUsageMs >= STREAK_MIN_MS;
+  const currentStreak = streakBase + (todayCounted ? 1 : 0);
+  const bestStreakDays = Math.max(bestPast, currentStreak);
+  const upcoming = nextMilestone(currentStreak);
+  const prevMilestone = [...STREAK_MILESTONES].reverse().find((m) => m <= currentStreak) ?? 0;
+  const toNext = upcoming === null ? 1 : Math.min(1, (currentStreak - prevMilestone) / (upcoming - prevMilestone));
+  const dayWord = (n: number) => (n === 1 ? "day" : "days");
 
   const maxDayMs = Math.max(DAILY_LIMIT_MS, ...usageHistory.map((d) => d.msSpent));
   const adult = isAdult(profile.birthdate);
@@ -226,6 +238,70 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             </button>
           </div>
         )}
+
+        <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Flame size={14} color={COLORS.ember} fill={todayCounted ? COLORS.ember : "none"} />
+            <span style={{ fontSize: 12, color: COLORS.parchment }}>Streak</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 28, color: COLORS.parchment, fontFamily: "'Newsreader', serif", lineHeight: 1.1 }}>
+              {currentStreak} <span style={{ fontSize: 13, color: COLORS.slate, fontFamily: "inherit" }}>{dayWord(currentStreak)}</span>
+            </div>
+            <div style={{ fontSize: 12, color: COLORS.slate }}>
+              Best {bestStreakDays} {dayWord(bestStreakDays)}
+            </div>
+          </div>
+
+          <div
+            role="progressbar"
+            aria-label="Progress to the next streak milestone"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(toNext * 100)}
+            style={{ height: 4, background: COLORS.line, borderRadius: 2, marginTop: 12, overflow: "hidden" }}
+          >
+            <div style={{ height: "100%", width: `${toNext * 100}%`, background: COLORS.ember }} />
+          </div>
+          <p style={{ fontSize: 11, color: COLORS.slate, margin: "8px 0 0" }}>
+            {upcoming === null
+              ? "You've passed every milestone."
+              : `${upcoming - currentStreak} more ${dayWord(upcoming - currentStreak)} to reach ${upcoming}.`}{" "}
+            {todayCounted
+              ? "Today counts."
+              : currentStreak > 0
+                ? "Spend 2 minutes in the feed today to keep it going."
+                : "Spend 2 minutes in the feed today to start one."}
+          </p>
+
+          <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+            {STREAK_MILESTONES.map((m) => {
+              const reached = bestStreakDays >= m;
+              return (
+                <div
+                  key={m}
+                  aria-label={`${m}-day streak, ${reached ? "reached" : "not reached yet"}`}
+                  title={reached ? `Reached ${m} days` : `Reach a ${m}-day streak`}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 3,
+                    padding: "5px 0",
+                    borderRadius: 8,
+                    fontSize: 11,
+                    border: `1px solid ${reached ? COLORS.ember : COLORS.line}`,
+                    background: reached ? alpha(COLORS.ember, 10) : "transparent",
+                    color: reached ? COLORS.ember : COLORS.slate,
+                  }}
+                >
+                  {reached && <Flame size={9} fill={COLORS.ember} />} {m}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
