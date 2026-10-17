@@ -330,6 +330,17 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   }
 
   // Over a video tile the overlays stay in the dark palette so text is readable on the thumbnail.
+  // Remember that today's quote of the day has been shown, so it stops
+  // jumping to the front on every visit (the feed page reads this cookie).
+  useEffect(() => {
+    if (!featuredId || items[index]?.id !== featuredId) return;
+    try {
+      document.cookie = `mf_qotd=${new Date().toISOString().slice(0, 10)}; path=/; max-age=172800; samesite=lax`;
+    } catch {
+      /* cookies blocked: it will simply lead the feed again next visit */
+    }
+  }, [index, items, featuredId]);
+
   const onVideo = items[index]?.type === "video";
 
   return (

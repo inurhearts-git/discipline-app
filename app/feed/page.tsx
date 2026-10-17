@@ -224,7 +224,8 @@ export default async function FeedPage({
   }
 
   // Quote of the day: the same quote or scripture for everyone, new each day.
-  // Until this browser has viewed it, it leads the feed. If the visit came from
+  // Until it has been shown on this browser today (mf_qotd cookie, set by the
+  // feed when the tile is on screen), it leads the feed. If the visit came from
   // a mood pick (which happens on the first open of each day), it goes second so
   // the mood match still opens the feed. Skipped for an Explore card or a topic.
   let featuredId: string | null = null;
@@ -241,7 +242,7 @@ export default async function FeedPage({
     if (pick) {
       featuredId = pick;
       const steered = !!(searchParams.item || searchParams.tag);
-      if (!steered && !seenRank.has(pick)) {
+      if (!steered && cookies().get("mf_qotd")?.value !== todayStr()) {
         let found = items.find((i) => i.id === pick);
         if (!found) {
           const { data: one } = await supabase.from("content_items").select(ITEM_COLUMNS).eq("id", pick).maybeSingle<ContentItem>();
