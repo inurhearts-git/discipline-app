@@ -14,13 +14,64 @@ const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform
 // so the feed never runs dry and still gets a little variety.
 const MOOD_SHARE = 0.7;
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+// ---- Learning from likes and saves ----
+// Until someone has liked or saved this many items, the order stays a plain shuffle.
+const MIN_SIGNALS = 3;
+// The best-matching items are up to (1 + MAX_BOOST) times more likely to land early.
+const MAX_BOOST = 3;
+
+interface TasteRow {
+  id: string;
+  tag: string | null;
+  moods: string[] | null;
+  attributed_to: string | null;
+}
+
+interface Taste {
+  total: number;
+  moods: Map<string, number>;
+  tags: Map<string, number>;
+  speakers: Map<string, number>;
+}
+
+function bump(map: Map<string, number>, key: string | null | undefined, by: number) {
+  if (!key) return;
+  map.set(key, (map.get(key) ?? 0) + by);
+}
+
+// A like counts 1 and a save counts 2 (both = 3), so saves steer harder.
+function buildTaste(rows: TasteRow[], weightOf: Map<string, number>): Taste {
+  const taste: Taste = { total: 0, moods: new Map(), tags: new Map(), speakers: new Map() };
+  for (const r of rows) {
+    const w = weightOf.get(r.id) ?? 0;
+    if (w <= 0) continue;
+    taste.total += w;
+    for (const m of new Set(r.moods ?? [])) bump(taste.moods, m, w);
+    bump(taste.tags, r.tag, w);
+    bump(taste.speakers, r.attributed_to, w);
   }
-  return a;
+  return taste;
+}
+
+// 1 = no preference. Rises toward 1 + MAX_BOOST as an item's moods, topic and
+// speaker match more of what the person has liked or saved.
+function tasteWeight(item: ContentItem & { moods?: string[] | null }, taste: Taste): number {
+  if (taste.total === 0) return 1;
+  let moodShare = 0;
+  for (const m of item.moods ?? []) moodShare = Math.max(moodShare, (taste.moods.get(m) ?? 0) / taste.total);
+  const tagShare = (taste.tags.get(item.tag) ?? 0) / taste.total;
+  const speakerShare = (taste.speakers.get(item.attributed_to) ?? 0) / taste.total;
+  return 1 + MAX_BOOST * (0.4 * moodShare + 0.3 * tagShare + 0.3 * speakerShare);
+}
+
+// Weighted random order (Efraimidis-Spirakis): heavier items tend to come
+// first, but every item can still land anywhere. With equal weights this is a
+// plain uniform shuffle.
+function weightedShuffle<T>(arr: T[], weightOf: (x: T) => number): T[] {
+  return arr
+    .map((x) => ({ x, key: Math.random() ** (1 / Math.max(weightOf(x), 0.0001)) }))
+    .sort((a, b) => b.key - a.key)
+    .map((e) => e.x);
 }
 
 // Ids this browser has recently viewed, oldest first (written by FeedClient).
@@ -105,11 +156,45 @@ export default async function FeedPage({
   const { data } = await itemsQuery.returns<ContentItem[]>();
   let items = data ?? [];
 
-  // Fresh order every visit: unseen items are shuffled, then items this browser
-  // viewed recently follow, least recently seen first. Nothing is hidden.
+  const { data: interactions } = await supabase
+    .from("user_content_interactions")
+    .select("content_id, liked, saved")
+    .eq("user_id", user.id);
+
+  const liked: Record<string, boolean> = {};
+  const saved: Record<string, boolean> = {};
+  for (const row of interactions ?? []) {
+    liked[row.content_id] = row.liked;
+    saved[row.content_id] = row.saved;
+  }
+
+  // What this person has liked or saved (up to 200 signals), turned into a taste profile.
+  const signalWeight = new Map<string, number>();
+  for (const row of interactions ?? []) {
+    const w = (row.liked ? 1 : 0) + (row.saved ? 2 : 0);
+    if (w > 0) signalWeight.set(row.content_id, w);
+  }
+  let taste: Taste = { total: 0, moods: new Map(), tags: new Map(), speakers: new Map() };
+  if (signalWeight.size >= MIN_SIGNALS) {
+    const signalIds = Array.from(signalWeight.keys()).slice(0, 200);
+    const { data: signalRows } = await supabase
+      .from("content_items")
+      .select("id, tag, moods, attributed_to")
+      .in("id", signalIds)
+      .returns<TasteRow[]>();
+    taste = buildTaste(signalRows ?? [], signalWeight);
+  }
+
+  // Fresh order every visit: unseen items are shuffled (leaning toward what the
+  // person has liked or saved), then items this browser viewed recently follow,
+  // least recently seen first. Nothing is hidden. Items they already liked or
+  // saved get no boost, so the boost goes to new things that feel similar.
   const seenIds = readSeenIds();
   const seenRank = new Map(seenIds.map((id, i) => [id, i]));
-  const unseen = shuffle(items.filter((i) => !seenRank.has(i.id)));
+  const unseen = weightedShuffle(
+    items.filter((i) => !seenRank.has(i.id)),
+    (i) => (liked[i.id] || saved[i.id] ? 1 : tasteWeight(i, taste))
+  );
   const seen = items
     .filter((i) => seenRank.has(i.id))
     .sort((x, y) => (seenRank.get(x.id) ?? 0) - (seenRank.get(y.id) ?? 0));
@@ -135,18 +220,6 @@ export default async function FeedPage({
       const { data: extra } = await one.maybeSingle<ContentItem>();
       if (extra) items = [extra, ...items];
     }
-  }
-
-  const { data: interactions } = await supabase
-    .from("user_content_interactions")
-    .select("content_id, liked, saved")
-    .eq("user_id", user.id);
-
-  const liked: Record<string, boolean> = {};
-  const saved: Record<string, boolean> = {};
-  for (const row of interactions ?? []) {
-    liked[row.content_id] = row.liked;
-    saved[row.content_id] = row.saved;
   }
 
   // Music library (empty until migration 0004 is run and tracks are added)
