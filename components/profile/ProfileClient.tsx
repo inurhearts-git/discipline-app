@@ -329,15 +329,14 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
               {usageHistory.map((day) => {
                 const isToday = day.date === new Date().toISOString().slice(0, 10);
-                const heightPct = Math.max(3, Math.min(100, (day.msSpent / maxDayMs) * 100));
+                const barPx = Math.max(3, Math.round(Math.min(1, day.msSpent / maxDayMs) * 38));
                 return (
-                  <div key={day.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div key={day.date} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
                     <div
                       title={fmtClock(day.msSpent)}
                       style={{
                         width: "100%",
-                        height: `${heightPct}%`,
-                        minHeight: 3,
+                        height: barPx,
                         borderRadius: 2,
                         background: isToday ? COLORS.brass : alpha(COLORS.brass, 35),
                       }}
