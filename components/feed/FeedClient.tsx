@@ -10,6 +10,20 @@ import type { ContentItem, Profile } from "@/lib/database.types";
 import { STREAK_MIN_MS } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 
+// Remember recently viewed items in a cookie so the server can rotate the feed
+// on the next visit (read in app/feed/page.tsx).
+const SEEN_MAX = 50;
+function markSeen(id: string) {
+  try {
+    const m = document.cookie.match(/(?:^|; )mf_seen=([^;]*)/);
+    const prev = m ? decodeURIComponent(m[1]).split(",").filter(Boolean) : [];
+    const next = [...prev.filter((x) => x !== id), id].slice(-SEEN_MAX);
+    document.cookie = `mf_seen=${encodeURIComponent(next.join(","))}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+  } catch {
+    // Cookies blocked: the feed still works, it just won't rotate.
+  }
+}
+
 export interface MusicTrack {
   id: string;
   title: string;
@@ -81,11 +95,12 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     return () => clearInterval(tick);
   }, [router]);
 
-  // View counter (unchanged)
+  // View counter + remember what was seen
   useEffect(() => {
     const item = items[index];
     if (!item || viewedRef.current.has(item.id)) return;
     viewedRef.current.add(item.id);
+    markSeen(item.id);
     fetch(`/api/content/${item.id}/view`, { method: "POST" })
       .then((res) => (res.ok ? res.json() : null))
       .then(() => {
@@ -603,15 +618,16 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         })}
       </div>
 
-      {activeMood && (
-        <button
-          onClick={() => setMoodOpen(true)}
-          data-theme={onVideo ? "dark" : undefined}
-          style={{ position: "absolute", top: 58, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: "none", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
-        >
-          {MOODS.find((m) => m.id === activeMood)?.emoji} {MOODS.find((m) => m.id === activeMood)?.label} · change
-        </button>
-      )}
+      {/* Always reachable: shows the active mood, or a "Mood" chip when none is set */}
+      <button
+        onClick={() => setMoodOpen(true)}
+        data-theme={onVideo ? "dark" : undefined}
+        style={{ position: "absolute", top: 58, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: "none", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
+      >
+        {activeMood
+          ? `${MOODS.find((m) => m.id === activeMood)?.emoji} ${MOODS.find((m) => m.id === activeMood)?.label} · change`
+          : "💭 Mood"}
+      </button>
 
       {moodOpen && (
         <div style={{ position: "absolute", inset: 0, zIndex: 40, background: alpha(COLORS.ink, 97), display: "flex", flexDirection: "column", justifyContent: "center", padding: 28 }}>

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isMoodId } from "@/lib/moods";
 
-// POST /api/moderate/[id]  { action: "approve" | "reject", maturity_rating?: "general" | "mature" }
+// POST /api/moderate/[id]
+//   { action: "approve" | "reject",
+//     maturity_rating?: "general" | "mature",
+//     moods?: string[] }
 //
 // This is the fix for the prototype's biggest gap: approval used to be a
 // plain client-side write to shared storage, trustworthy for a demo but
@@ -14,6 +18,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 //
 // Blueprint §6: on approve, maturity_rating can be confirmed or overridden
 // by the admin here — if omitted, the submitter's original rating stands.
+// Moods work the same way: if `moods` is omitted, the submitter's tags
+// stand; if provided (even as an empty array), the admin's list replaces them.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -33,6 +39,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const update: Record<string, unknown> = { status: action, reviewed_by: user.id };
   if (action === "approved" && (body.maturity_rating === "general" || body.maturity_rating === "mature")) {
     update.maturity_rating = body.maturity_rating;
+  }
+  if (action === "approved" && Array.isArray(body.moods)) {
+    // Only accept known moods, de-duplicated.
+    update.moods = Array.from(
+      new Set(body.moods.filter((m: unknown): m is string => typeof m === "string" && isMoodId(m)))
+    );
   }
 
   const admin = createAdminClient();

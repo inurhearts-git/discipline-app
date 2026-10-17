@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
@@ -8,6 +9,44 @@ import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
 const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id, moods";
+
+// Share of the feed that matches the chosen mood. The rest comes from outside it,
+// so the feed never runs dry and still gets a little variety.
+const MOOD_SHARE = 0.7;
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Ids this browser has recently viewed, oldest first (written by FeedClient).
+function readSeenIds(): string[] {
+  const raw = cookies().get("mf_seen")?.value;
+  if (!raw) return [];
+  try {
+    return decodeURIComponent(raw).split(",").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Keeps each list's order. Opens with a mood match if there is one, then
+// picks from the mood list about MOOD_SHARE of the time.
+function blendByMood<T>(matching: T[], others: T[]): T[] {
+  const out: T[] = [];
+  let a = 0;
+  let b = 0;
+  if (matching.length) out.push(matching[a++]);
+  while (a < matching.length || b < others.length) {
+    const takeMood = a < matching.length && (b >= others.length || Math.random() < MOOD_SHARE);
+    out.push(takeMood ? matching[a++] : others[b++]);
+  }
+  return out;
+}
 
 export default async function FeedPage({
   searchParams,
@@ -66,11 +105,22 @@ export default async function FeedPage({
   const { data } = await itemsQuery.returns<ContentItem[]>();
   let items = data ?? [];
 
-  // Mood-first entry: items tagged with the chosen mood come first; nothing is hidden.
+  // Fresh order every visit: unseen items are shuffled, then items this browser
+  // viewed recently follow, least recently seen first. Nothing is hidden.
+  const seenIds = readSeenIds();
+  const seenRank = new Map(seenIds.map((id, i) => [id, i]));
+  const unseen = shuffle(items.filter((i) => !seenRank.has(i.id)));
+  const seen = items
+    .filter((i) => seenRank.has(i.id))
+    .sort((x, y) => (seenRank.get(x.id) ?? 0) - (seenRank.get(y.id) ?? 0));
+  items = [...unseen, ...seen];
+
+  // Mood-first entry: the feed opens on a match and leans toward the mood
+  // (about 70%), with the rest drawn from outside it.
   const mood = searchParams.mood && isMoodId(searchParams.mood) ? searchParams.mood : null;
   if (mood) {
     const hasMood = (i: ContentItem) => ((i as ContentItem & { moods?: string[] | null }).moods ?? []).includes(mood);
-    items = [...items.filter(hasMood), ...items.filter((i) => !hasMood(i))];
+    items = blendByMood(items.filter(hasMood), items.filter((i) => !hasMood(i)));
   }
 
   // Opened from an Explore card: put that item first so the feed starts there.

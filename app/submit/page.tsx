@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Send, Search, Loader2 } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
-import { COLORS } from "@/lib/constants";
+import { COLORS, alpha } from "@/lib/constants";
+import { MOODS, type MoodId } from "@/lib/moods";
 import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
 
 interface YouTubeResult {
@@ -26,6 +27,7 @@ export default function SubmitPage() {
   const [source, setSource] = useState("");
   const [videoId, setVideoId] = useState("");
   const [maturityRating, setMaturityRating] = useState<MaturityRating>("general");
+  const [moods, setMoods] = useState<MoodId[]>([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,6 +38,9 @@ export default function SubmitPage() {
   const [results, setResults] = useState<YouTubeResult[]>([]);
   const [selected, setSelected] = useState<YouTubeResult | null>(null);
   const [manualEntry, setManualEntry] = useState(false);
+
+  const toggleMood = (id: MoodId) =>
+    setMoods((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
 
   const runSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -90,6 +95,7 @@ export default function SubmitPage() {
         person_name: type === "video" ? attributedTo.trim() : undefined,
         youtube_channel_id: selected?.channelId,
         maturity_rating: maturityRating,
+        moods,
       }),
     });
     setSubmitting(false);
@@ -137,7 +143,7 @@ export default function SubmitPage() {
                 borderRadius: 8,
                 fontSize: 12,
                 border: `1px solid ${type === o.k ? COLORS.brass : COLORS.line}`,
-                background: type === o.k ? "rgba(201,162,39,0.08)" : "transparent",
+                background: type === o.k ? alpha(COLORS.brass, 8) : "transparent",
                 color: COLORS.parchment,
                 cursor: "pointer",
               }}
@@ -195,7 +201,7 @@ export default function SubmitPage() {
                       padding: 8,
                       borderRadius: 8,
                       border: `1px solid ${selected?.videoId === r.videoId ? COLORS.brass : COLORS.line}`,
-                      background: selected?.videoId === r.videoId ? "rgba(201,162,39,0.08)" : "transparent",
+                      background: selected?.videoId === r.videoId ? alpha(COLORS.brass, 8) : "transparent",
                       cursor: "pointer",
                     }}
                   >
@@ -254,6 +260,35 @@ export default function SubmitPage() {
         <label className="mf-label">Source (optional)</label>
         <input className="mf-input" placeholder="e.g. Letters from a Stoic" value={source} onChange={(e) => setSource(e.target.value)} />
 
+        <label className="mf-label">Who is this for? (optional)</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+          {MOODS.map((m) => {
+            const on = moods.includes(m.id);
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => toggleMood(m.id)}
+                aria-pressed={on}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  border: `1px solid ${on ? COLORS.brass : COLORS.line}`,
+                  background: on ? alpha(COLORS.brass, 8) : "transparent",
+                  color: COLORS.parchment,
+                  cursor: "pointer",
+                }}
+              >
+                {m.emoji} {m.label}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ color: COLORS.slate, fontSize: 11, margin: "0 0 14px" }}>
+          Pick the moods this helps with. An admin can adjust these at review time.
+        </p>
+
         <label className="mf-label">Maturity rating</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {(
@@ -271,7 +306,12 @@ export default function SubmitPage() {
                 borderRadius: 8,
                 fontSize: 12,
                 border: `1px solid ${maturityRating === o.k ? (o.k === "mature" ? COLORS.ember : COLORS.brass) : COLORS.line}`,
-                background: maturityRating === o.k ? (o.k === "mature" ? "rgba(194,84,46,0.1)" : "rgba(201,162,39,0.08)") : "transparent",
+                background:
+                  maturityRating === o.k
+                    ? o.k === "mature"
+                      ? alpha(COLORS.ember, 10)
+                      : alpha(COLORS.brass, 8)
+                    : "transparent",
                 color: COLORS.parchment,
                 cursor: "pointer",
               }}
