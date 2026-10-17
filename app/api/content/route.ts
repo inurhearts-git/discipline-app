@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAdult } from "@/lib/constants";
+import { isMoodId } from "@/lib/moods";
 import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
 
 // GET /api/content — approved feed items, RLS already restricts this to
@@ -48,6 +49,10 @@ export async function GET() {
 // Blueprint §6: the submitter picks an initial maturity_rating (default
 // 'general'); an admin can still confirm or override it at approval time
 // in /api/moderate/[id].
+//
+// Moods: the submitter can optionally tag which moods the item helps with
+// (ids from lib/moods.ts). Unknown values are dropped and duplicates removed;
+// an admin can replace the list at approval time.
 export async function POST(request: Request) {
   const supabase = createClient();
   const {
@@ -71,6 +76,7 @@ export async function POST(request: Request) {
     person_name,
     youtube_channel_id,
     maturity_rating,
+    moods,
   } = body as {
     type: ContentType;
     tag: ContentTag;
@@ -81,6 +87,7 @@ export async function POST(request: Request) {
     person_name?: string;
     youtube_channel_id?: string;
     maturity_rating?: MaturityRating;
+    moods?: unknown;
   };
 
   if (!type || !tag || !text?.trim() || !attributed_to?.trim()) {
@@ -89,6 +96,10 @@ export async function POST(request: Request) {
   if (type === "video" && !video_id?.trim()) {
     return NextResponse.json({ error: "Add a YouTube video ID for a speech clip." }, { status: 400 });
   }
+
+  const cleanMoods: string[] = Array.isArray(moods)
+    ? Array.from(new Set(moods.filter((m: unknown): m is string => typeof m === "string" && isMoodId(m))))
+    : [];
 
   let personId: string | null = null;
   if (type === "video" && person_name?.trim()) {
@@ -126,6 +137,7 @@ export async function POST(request: Request) {
       video_id: type === "video" ? video_id!.trim() : null,
       person_id: personId,
       maturity_rating: maturity_rating === "mature" ? "mature" : "general",
+      moods: cleanMoods,
       status: "pending",
       submitted_by: user.id,
     })

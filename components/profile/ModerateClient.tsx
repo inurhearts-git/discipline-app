@@ -2,33 +2,67 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Trash2, Plus } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
-import { COLORS, tagColor } from "@/lib/constants";
+import { COLORS, alpha, tagColor } from "@/lib/constants";
+import { MOODS, isMoodId, type MoodId } from "@/lib/moods";
 import type { ContentItem, MaturityRating } from "@/lib/database.types";
+
+// `moods` is selected by app/moderate/page.tsx; read it without depending on
+// the ContentItem type having been updated.
+const moodsOf = (item: ContentItem): MoodId[] =>
+  ((item as ContentItem & { moods?: string[] | null }).moods ?? []).filter(isMoodId);
 
 export function ModerateClient({ initialPending }: { initialPending: ContentItem[] }) {
   const router = useRouter();
   const [pending, setPending] = useState(initialPending);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   // Blueprint §6: "content_items.maturity_rating set by whoever submits,
   // reviewed and confirmable by admin at approval time." Tracks any
   // in-review overrides before the admin clicks Approve.
   const [ratings, setRatings] = useState<Record<string, MaturityRating>>(
     Object.fromEntries(initialPending.map((p) => [p.id, p.maturity_rating]))
   );
+  // Same idea for moods: starts as the submitter's picks, the admin can change
+  // them before approving.
+  const [moodsById, setMoodsById] = useState<Record<string, MoodId[]>>(
+    Object.fromEntries(initialPending.map((p) => [p.id, moodsOf(p)]))
+  );
+
+  const toggleMood = (itemId: string, mood: MoodId) =>
+    setMoodsById((prev) => {
+      const current = prev[itemId] ?? [];
+      return {
+        ...prev,
+        [itemId]: current.includes(mood) ? current.filter((m) => m !== mood) : [...current, mood],
+      };
+    });
 
   const act = async (item: ContentItem, action: "approve" | "reject") => {
     setBusyId(item.id);
-    const res = await fetch(`/api/moderate/${item.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, maturity_rating: action === "approve" ? ratings[item.id] : undefined }),
-    });
-    setBusyId(null);
-    if (res.ok) {
-      setPending((prev) => prev.filter((p) => p.id !== item.id));
+    setError("");
+    try {
+      const res = await fetch(`/api/moderate/${item.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          maturity_rating: action === "approve" ? ratings[item.id] : undefined,
+          moods: action === "approve" ? moodsById[item.id] ?? [] : undefined,
+        }),
+      });
+      if (res.ok) {
+        setPending((prev) => prev.filter((p) => p.id !== item.id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Couldn't update that item. Try again.");
+      }
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -41,9 +75,31 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
           </button>
           <span style={{ fontSize: 12, color: COLORS.slate }}>{pending.length} pending</span>
         </div>
-        <h2 style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 22, color: COLORS.parchment, margin: "0 0 18px" }}>
+        <h2 style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 22, color: COLORS.parchment, margin: "0 0 12px" }}>
           Review submissions
         </h2>
+
+        <button
+          onClick={() => router.push("/moderate/bulk")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "9px 10px",
+            marginBottom: 18,
+            borderRadius: 8,
+            fontSize: 12,
+            border: `1px solid ${COLORS.line}`,
+            background: "transparent",
+            color: COLORS.parchment,
+            cursor: "pointer",
+          }}
+        >
+          <Plus size={14} /> Add speech clips in bulk
+        </button>
+
+        {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
         {pending.length === 0 && <p style={{ color: COLORS.slate, fontSize: 13, textAlign: "center", marginTop: 60 }}>Nothing waiting on you.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
           {pending.map((item) => (
@@ -70,7 +126,12 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
                       fontSize: 11,
                       textTransform: "capitalize",
                       border: `1px solid ${ratings[item.id] === r ? (r === "mature" ? COLORS.ember : COLORS.brass) : COLORS.line}`,
-                      background: ratings[item.id] === r ? (r === "mature" ? "rgba(194,84,46,0.12)" : "rgba(201,162,39,0.1)") : "transparent",
+                      background:
+                        ratings[item.id] === r
+                          ? r === "mature"
+                            ? alpha(COLORS.ember, 12)
+                            : alpha(COLORS.brass, 10)
+                          : "transparent",
                       color: COLORS.parchment,
                       cursor: "pointer",
                     }}
@@ -78,6 +139,32 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
                     {r}
                   </button>
                 ))}
+              </div>
+
+              <p style={{ fontSize: 11, color: COLORS.slate, margin: "0 0 6px" }}>Who is this for?</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {MOODS.map((m) => {
+                  const on = (moodsById[item.id] ?? []).includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleMood(item.id, m.id)}
+                      aria-pressed={on}
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        border: `1px solid ${on ? COLORS.brass : COLORS.line}`,
+                        background: on ? alpha(COLORS.brass, 10) : "transparent",
+                        color: COLORS.parchment,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {m.emoji} {m.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
