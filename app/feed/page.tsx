@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
 import { streakThroughYesterday } from "@/lib/streak";
 import { isMoodId } from "@/lib/moods";
+import { pickQuoteOfTheDay } from "@/lib/qotd";
 import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
@@ -222,6 +223,34 @@ export default async function FeedPage({
     }
   }
 
+  // Quote of the day: the same quote or scripture for everyone, new each day.
+  // It leads the feed until this browser has viewed it. Skipped when the visit
+  // was steered somewhere specific (a topic, a mood or a particular item).
+  let featuredId: string | null = null;
+  {
+    const { data: candidates } = await supabase
+      .from("content_items")
+      .select("id")
+      .eq("status", "approved")
+      .eq("maturity_rating", "general")
+      .in("tag", ["QUOTE", "SCRIPTURE"])
+      .limit(2000)
+      .returns<{ id: string }[]>();
+    const pick = pickQuoteOfTheDay((candidates ?? []).map((c) => c.id), todayStr());
+    if (pick) {
+      featuredId = pick;
+      const steered = !!(searchParams.item || searchParams.tag || mood);
+      if (!steered && !seenRank.has(pick)) {
+        let found = items.find((i) => i.id === pick);
+        if (!found) {
+          const { data: one } = await supabase.from("content_items").select(ITEM_COLUMNS).eq("id", pick).maybeSingle<ContentItem>();
+          found = one ?? undefined;
+        }
+        if (found) items = [found, ...items.filter((i) => i.id !== pick)];
+      }
+    }
+  }
+
   // Music library (empty until migration 0004 is run and tracks are added)
   const { data: trackRows } = await supabase
     .from("music_tracks")
@@ -237,6 +266,7 @@ export default async function FeedPage({
       initialMsSpentToday={msSpentToday}
       streakBase={streakBase}
       activeMood={mood}
+      featuredId={featuredId}
       tracks={(trackRows ?? []) as MusicTrack[]}
     />
   );

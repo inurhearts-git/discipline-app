@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame } from "lucide-react";
+import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame, Sun } from "lucide-react";
 import { Shell, Logo } from "@/components/ui/Shell";
 import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCount, tagColor } from "@/lib/constants";
 import type { ContentItem, Profile } from "@/lib/database.types";
@@ -41,6 +41,7 @@ interface FeedClientProps {
   tracks: MusicTrack[];
   streakBase: number;
   activeMood: string | null;
+  featuredId?: string | null;
 }
 
 // Never shorter than the old 720px; grows to fill taller phone screens.
@@ -56,7 +57,7 @@ function startTrack(a: HTMLAudioElement, track: MusicTrack) {
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
-export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood }: FeedClientProps) {
+export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, featuredId }: FeedClientProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -517,6 +518,11 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                     : { position: "absolute", top: 0, bottom: 0, left: 0, right: 64, padding: "76px 12px 36px 24px", display: "flex", flexDirection: "column", justifyContent: "center", zIndex: 6 }
                 }
               >
+                {!isVideo && item.id === featuredId && (
+                  <span style={{ order: -1, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 14, fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: COLORS.brass }}>
+                    <Sun size={13} aria-hidden /> Quote of the day
+                  </span>
+                )}
                 {!isVideo && (
                   <span aria-hidden style={{ order: 0, fontFamily: "'Newsreader', serif", fontSize: 72, lineHeight: 0.7, height: 34, color: COLORS.brass, opacity: 0.55 }}>
                     &ldquo;
