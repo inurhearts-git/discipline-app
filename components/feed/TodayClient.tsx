@@ -6,6 +6,7 @@ import { ArrowLeft, Bookmark, Heart, Share2, Sun } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { ResetCountdown } from "@/components/ui/ResetCountdown";
 import { ReflectionBox } from "@/components/ui/ReflectionBox";
+import { ShareSheet } from "@/components/ui/ShareSheet";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
 
@@ -50,21 +51,8 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
     }
   };
 
-  const share = async () => {
-    if (!item) return;
-    const url = `${window.location.origin}/feed?item=${item.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "Quote of the day", text: item.text, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setToast("Link copied");
-        setTimeout(() => setToast(null), 1800);
-      }
-    } catch {
-      // Share sheet dismissed.
-    }
-  };
+  const [sharing, setSharing] = useState(false);
+  const share = () => item && setSharing(true);
 
   const len = item?.text.length ?? 0;
   const size = len > 220 ? 22 : len > 140 ? 26 : len > 70 ? 30 : 36;
@@ -138,6 +126,16 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
         <div style={{ position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)", padding: "8px 14px", borderRadius: 14, background: alpha(COLORS.ink, 90), border: `1px solid ${COLORS.line}`, color: COLORS.parchment, fontSize: 12, zIndex: 30 }}>
           {toast}
         </div>
+      )}
+      {sharing && item && (
+        <ShareSheet
+          item={item}
+          onClose={() => setSharing(false)}
+          onToast={(msg) => {
+            setToast(msg);
+            setTimeout(() => setToast(null), 1800);
+          }}
+        />
       )}
     </Shell>
   );

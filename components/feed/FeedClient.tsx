@@ -9,6 +9,7 @@ import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCoun
 import type { ContentItem, Profile } from "@/lib/database.types";
 import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
+import { ShareSheet } from "@/components/ui/ShareSheet";
 
 // Remember recently viewed items in a cookie so the server can rotate the feed
 // on the next visit (read in app/feed/page.tsx).
@@ -255,7 +256,13 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     }
   };
 
+  // Quotes and scripture open the share sheet (image card or link); videos share the link.
+  const [shareItem, setShareItem] = useState<ContentItem | null>(null);
   const share = async (item: ContentItem) => {
+    if (item.type !== "video") {
+      setShareItem(item);
+      return;
+    }
     const url = `${window.location.origin}/feed?item=${item.id}`;
     try {
       if (navigator.share) {
@@ -754,6 +761,16 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         >
           {toast}
         </div>
+      )}
+      {shareItem && (
+        <ShareSheet
+          item={shareItem}
+          onClose={() => setShareItem(null)}
+          onToast={(msg) => {
+            setToast(msg);
+            setTimeout(() => setToast(null), 1800);
+          }}
+        />
       )}
     </Shell>
   );
