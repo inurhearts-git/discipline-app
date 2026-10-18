@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMoodId } from "@/lib/moods";
+import { draftAndStore, meaningConfigured } from "@/lib/meaning";
+
+// Leaves time for the Claude draft made on approval.
+export const maxDuration = 30;
 
 // POST /api/moderate/[id]
 //   { action: "approve" | "reject",
@@ -51,5 +55,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data, error } = await admin.from("content_items").update(update).eq("id", params.id).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ item: data });
+
+  // Approved quotes and scripture get a draft meaning from Claude, ready for
+  // review in /moderate/meanings. A failure here never blocks the approval.
+  let meaningDrafted = false;
+  if (action === "approved" && data && data.type !== "video" && meaningConfigured()) {
+    try {
+      const r = await draftAndStore(admin, data);
+      meaningDrafted = !r.skipped;
+    } catch (e) {
+      console.error("[moderate] meaning draft failed", params.id, e instanceof Error ? e.message : e);
+    }
+  }
+  return NextResponse.json({ item: data, meaningDrafted });
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Trash2, Plus } from "lucide-react";
+import { Check, Trash2, Plus, Lightbulb } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
@@ -97,6 +97,25 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
           }}
         >
           <Plus size={14} /> Add speech clips in bulk
+        </button>
+        <button
+          onClick={() => router.push("/moderate/meanings")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "9px 10px",
+            margin: "-10px 0 18px",
+            borderRadius: 8,
+            fontSize: 12,
+            border: `1px solid ${COLORS.line}`,
+            background: "transparent",
+            color: COLORS.parchment,
+            cursor: "pointer",
+          }}
+        >
+          <Lightbulb size={14} /> Review meanings
         </button>
 
         {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}

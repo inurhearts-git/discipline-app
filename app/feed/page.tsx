@@ -227,6 +227,16 @@ export default async function FeedPage({
   // feed header). The feed only labels the tile if it turns up naturally.
   const featuredId = (await getQuoteOfTheDay(supabase))?.id ?? null;
 
+  // Which items have an approved plain-language meaning (migration 0009).
+  // An error (e.g. the table isn't there yet) just means no "What it means" links.
+  const { data: meaningRows } = await supabase
+    .from("content_meanings")
+    .select("content_id")
+    .eq("status", "approved")
+    .limit(10000)
+    .returns<{ content_id: string }[]>();
+  const meaningIds = (meaningRows ?? []).map((r) => r.content_id);
+
   // Music library (empty until migration 0004 is run and tracks are added)
   const { data: trackRows } = await supabase
     .from("music_tracks")
@@ -243,6 +253,7 @@ export default async function FeedPage({
       streakBase={streakBase}
       activeMood={mood}
       featuredId={featuredId}
+      meaningIds={meaningIds}
       tracks={(trackRows ?? []) as MusicTrack[]}
     />
   );

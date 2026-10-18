@@ -30,5 +30,11 @@ export default async function TodayPage() {
 
   const reflection = await getTodayReflection(supabase, user.id);
 
-  return <TodayClient item={item} initialLiked={liked} initialSaved={saved} initialReflection={reflection} />;
+  let hasMeaning = false;
+  if (item) {
+    const { data: m } = await supabase.from("content_meanings").select("content_id").eq("content_id", item.id).eq("status", "approved").maybeSingle();
+    hasMeaning = !!m;
+  }
+
+  return <TodayClient item={item} initialLiked={liked} initialSaved={saved} initialReflection={reflection} hasMeaning={hasMeaning} />;
 }

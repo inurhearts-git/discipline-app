@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame, Sun } from "lucide-react";
@@ -11,6 +11,7 @@ import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { ListenButton } from "@/components/ui/ListenButton";
+import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { useSpeech } from "@/lib/useSpeech";
 
 // Remember recently viewed items in a cookie so the server can rotate the feed
@@ -45,6 +46,7 @@ interface FeedClientProps {
   streakBase: number;
   activeMood: string | null;
   featuredId?: string | null;
+  meaningIds?: string[];
 }
 
 // Never shorter than the old 720px; grows to fill taller phone screens.
@@ -60,7 +62,7 @@ function startTrack(a: HTMLAudioElement, track: MusicTrack) {
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
-export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, featuredId }: FeedClientProps) {
+export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, featuredId, meaningIds = [] }: FeedClientProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -272,6 +274,11 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
       lastTapRef.current = { id: item.id, t: now };
     }
   };
+
+  // "What it means" popup.
+  const hasMeaning = useMemo(() => new Set(meaningIds), [meaningIds]);
+  const [meaningFor, setMeaningFor] = useState<string | null>(null);
+  const closeMeaning = useCallback(() => setMeaningFor(null), []);
 
   // Quotes and scripture open the share sheet (image card or link); videos share the link.
   const [shareItem, setShareItem] = useState<ContentItem | null>(null);
@@ -600,6 +607,11 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                   {item.text}
                 </p>
                 {item.source && <span style={{ order: 3, marginTop: isVideo ? 0 : 6, fontSize: 12, color: COLORS.slate }}>{item.source}</span>}
+                {!isVideo && hasMeaning.has(item.id) && (
+                  <span style={{ order: 5, display: "flex" }}>
+                    <MeaningLink onOpen={() => setMeaningFor(item.id)} />
+                  </span>
+                )}
                 {i === index && currentTrack && unlocked && !muted && (
                   <div style={{ order: 4, marginTop: isVideo ? 8 : 18, fontSize: 11, color: COLORS.slate }}>
                     ♪ {currentTrack.title}
@@ -788,6 +800,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           {toast}
         </div>
       )}
+      {meaningFor && <MeaningSheet contentId={meaningFor} onClose={closeMeaning} />}
       {shareItem && (
         <ShareSheet
           item={shareItem}

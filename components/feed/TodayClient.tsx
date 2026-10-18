@@ -8,6 +8,7 @@ import { ResetCountdown } from "@/components/ui/ResetCountdown";
 import { ReflectionBox } from "@/components/ui/ReflectionBox";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { ListenButton } from "@/components/ui/ListenButton";
+import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { useSpeech } from "@/lib/useSpeech";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
@@ -17,14 +18,16 @@ interface TodayClientProps {
   initialLiked: boolean;
   initialSaved: boolean;
   initialReflection: string;
+  hasMeaning?: boolean;
 }
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 6, display: "flex", alignItems: "center" };
 
-export function TodayClient({ item, initialLiked, initialSaved, initialReflection }: TodayClientProps) {
+export function TodayClient({ item, initialLiked, initialSaved, initialReflection, hasMeaning = false }: TodayClientProps) {
   const [liked, setLiked] = useState(initialLiked);
   const [saved, setSaved] = useState(initialSaved);
   const [toast, setToast] = useState<string | null>(null);
+  const [meaningOpen, setMeaningOpen] = useState(false);
   const { supported: canSpeak, speakingId, speak } = useSpeech();
 
   // Clears the dot on the feed's sun button for the rest of the UTC day.
@@ -96,6 +99,7 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
                 </span>
               </div>
               {item.source && <span style={{ marginTop: 8, fontSize: 12, color: COLORS.slate }}>{item.source}</span>}
+              {hasMeaning && <MeaningLink onOpen={() => setMeaningOpen(true)} />}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, padding: "12px 0 18px" }}>
@@ -131,6 +135,7 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
           {toast}
         </div>
       )}
+      {meaningOpen && item && <MeaningSheet contentId={item.id} onClose={() => setMeaningOpen(false)} />}
       {sharing && item && (
         <ShareSheet
           item={item}
