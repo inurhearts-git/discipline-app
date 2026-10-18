@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Shell, Logo } from "@/components/ui/Shell";
-import { Btn } from "@/components/ui/Btn";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { Field, FormError, SubmitButton } from "@/components/auth/Fields";
+import { friendlyAuthError } from "@/lib/auth-errors";
 import { COLORS } from "@/lib/constants";
 
 // Only viewer/creator are offered here. Admin is never self-service —
 // an existing admin has to promote someone via the profiles table
-// (see README "Promoting an admin"). This closes the prototype's gap
-// where anyone could declare themselves Admin at login.
+// (see README "Promoting an admin").
 const SIGNUP_ROLES = [
-  { key: "viewer", label: "Viewer", desc: "Browse the feed" },
-  { key: "creator", label: "Creator", desc: "Submit content for review" },
+  { key: "viewer", label: "Read", desc: "Browse the feed" },
+  { key: "creator", label: "Read and share", desc: "Also submit quotes for review" },
 ] as const;
 
 export default function SignupPage() {
@@ -26,28 +26,33 @@ export default function SignupPage() {
   const [birthdate, setBirthdate] = useState("");
   const [role, setRole] = useState<"viewer" | "creator">("viewer");
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
+  const ready = !!name.trim() && !!email.trim() && password.length >= 6;
+
+  const fail = (msg: string) => {
+    setLoading(false);
+    setError(msg);
+    setAttempt((a) => a + 1);
+  };
+
+  const handleSignup = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ready) return;
     setError("");
     setLoading(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: { data: { display_name: name.trim() } },
     });
-    if (signUpError) {
-      setLoading(false);
-      setError(signUpError.message);
-      return;
-    }
+    if (signUpError) return fail(friendlyAuthError(signUpError.message));
+
     // The `handle_new_user` trigger creates the profiles row with role
-    // defaulted to 'viewer'. If the person chose 'creator', apply that
-    // now — the profiles update policy allows a user to edit their own
-    // row (role escalation to 'admin' is separately blocked server-side).
-    // Blueprint §6: birthdate is optional here (people can add it later
-    // from their profile) but is what unlocks mature content in the feed —
-    // no birthdate means mature content stays filtered out by default.
+    // 'viewer'. Apply the chosen role and the optional birthdate (which is
+    // what unlocks mature content) now; the update policy allows a user to
+    // edit their own row, and escalation to admin is blocked server-side.
     if (data.user) {
       const patch: Record<string, unknown> = {};
       if (role === "creator") patch.role = "creator";
@@ -62,64 +67,52 @@ export default function SignupPage() {
   };
 
   return (
-    <Shell>
-      <div style={{ padding: "56px 28px", display: "flex", flexDirection: "column", minHeight: 720 }}>
-        <Logo />
-        <p style={{ color: COLORS.slate, fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>
-          Create an account to build your feed.
-        </p>
-        <div style={{ marginTop: 32 }}>
-          <label className="mf-label">Your name</label>
-          <input className="mf-input" placeholder="e.g. Sam" value={name} onChange={(e) => setName(e.target.value)} />
-          <label className="mf-label">Email</label>
-          <input className="mf-input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <label className="mf-label">Password</label>
-          <input className="mf-input" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <label className="mf-label">Date of birth (optional)</label>
-          <input className="mf-input" type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
-          <p style={{ color: COLORS.slate, fontSize: 11, margin: "-6px 0 14px" }}>
-            Only used to show age-appropriate content. You can skip this and add it later.
-          </p>
-          <label className="mf-label" style={{ marginTop: 8 }}>
-            Role
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {SIGNUP_ROLES.map((r) => (
-              <button
-                key={r.key}
-                onClick={() => setRole(r.key)}
-                style={{
-                  textAlign: "left",
-                  padding: "12px 14px",
-                  borderRadius: 8,
-                  border: `1px solid ${role === r.key ? COLORS.brass : COLORS.line}`,
-                  background: role === r.key ? "rgba(201,162,39,0.08)" : "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>{r.label}</div>
-                <div style={{ color: COLORS.slate, fontSize: 12 }}>{r.desc}</div>
-              </button>
-            ))}
-          </div>
-          {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "12px 0 0" }}>{error}</p>}
+    <AuthLayout compact title="Begin" subtitle="One focused hour a day, and a few words worth keeping.">
+      <form onSubmit={handleSignup} noValidate style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <Field label="Your name" autoComplete="given-name" placeholder="e.g. Sam" value={name} onChange={(e) => setName(e.target.value)} />
+        <Field label="Email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 6 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          hint={password && password.length < 6 ? `${6 - password.length} more ${6 - password.length === 1 ? "character" : "characters"} to go` : undefined}
+        />
+        <Field
+          label="Date of birth (optional)"
+          type="date"
+          value={birthdate}
+          onChange={(e) => setBirthdate(e.target.value)}
+          max={new Date().toISOString().slice(0, 10)}
+          hint="Only used to show age-appropriate content. You can add it later."
+        />
+
+        <span className="au-label" style={{ marginTop: 4 }}>
+          How will you use Discipline?
+        </span>
+        <div role="group" aria-label="How will you use Discipline?" style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+          {SIGNUP_ROLES.map((r) => (
+            <button key={r.key} type="button" className="au-choice" aria-pressed={role === r.key} onClick={() => setRole(r.key)} style={{ flex: 1 }}>
+              <div style={{ color: COLORS.parchment, fontSize: 14, fontWeight: 500 }}>{r.label}</div>
+              <div style={{ color: COLORS.slate, fontSize: 12, marginTop: 2 }}>{r.desc}</div>
+            </button>
+          ))}
         </div>
+
+        <FormError message={error} attempt={attempt} />
         <div style={{ flex: 1 }} />
-        <Btn
-          variant="primary"
-          disabled={!name.trim() || !email.trim() || password.length < 6 || loading}
-          onClick={handleSignup}
-          style={{ justifyContent: "center", padding: "13px 16px" }}
-        >
-          {loading ? "Creating account…" : "Create account"}
-        </Btn>
-        <p style={{ color: COLORS.slate, fontSize: 12, textAlign: "center", marginTop: 16 }}>
+        <SubmitButton loading={loading} loadingText="Creating your account…" disabled={!ready}>
+          Create account
+        </SubmitButton>
+        <p style={{ color: COLORS.slate, fontSize: 13, textAlign: "center", margin: "18px 0 0" }}>
           Already have an account?{" "}
-          <Link href="/login" style={{ color: COLORS.brass }}>
+          <Link href="/login" className="au-link">
             Sign in
           </Link>
         </p>
-      </div>
-    </Shell>
+      </form>
+    </AuthLayout>
   );
 }

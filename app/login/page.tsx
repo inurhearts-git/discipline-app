@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Shell, Logo } from "@/components/ui/Shell";
-import { Btn } from "@/components/ui/Btn";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { Field, FormError, SubmitButton } from "@/components/auth/Fields";
+import { friendlyAuthError } from "@/lib/auth-errors";
 import { COLORS } from "@/lib/constants";
 
 export default function LoginPage() {
@@ -14,15 +15,19 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
-      setError(error.message);
+      setLoading(false);
+      setError(friendlyAuthError(error.message));
+      setAttempt((a) => a + 1);
       return;
     }
     router.replace("/");
@@ -30,51 +35,27 @@ export default function LoginPage() {
   };
 
   return (
-    <Shell>
-      <div style={{ padding: "56px 28px", display: "flex", flexDirection: "column", minHeight: 720 }}>
-        <Logo />
-        <p style={{ color: COLORS.slate, fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>
-          A feed built for focus, not scrolling. Sign in to continue.
-        </p>
-        <div style={{ marginTop: 40 }}>
-          <label className="mf-label">Email</label>
-          <input
-            className="mf-input"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <label className="mf-label">Password</label>
-          <input
-            className="mf-input"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
-          {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
+    <AuthLayout title="Welcome back" subtitle="Your hour is waiting. Sign in to continue.">
+      <form onSubmit={handleLogin} noValidate style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        <Field label="Email" type="email" autoComplete="email" inputMode="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field label="Password" type="password" autoComplete="current-password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <div style={{ textAlign: "right", margin: "-4px 2px 16px", fontSize: 13 }}>
+          <Link href="/forgot-password" className="au-link">
+            Forgot password?
+          </Link>
         </div>
-        <div style={{ flex: 1 }} />
-        <Btn
-          variant="primary"
-          disabled={!email.trim() || !password.trim() || loading}
-          onClick={handleLogin}
-          style={{ justifyContent: "center", padding: "13px 16px" }}
-        >
-          {loading ? "Signing in…" : "Continue"}
-        </Btn>
-        <p style={{ color: COLORS.slate, fontSize: 12, textAlign: "center", marginTop: 16 }}>
+        <FormError message={error} attempt={attempt} />
+        <div style={{ flex: 1, minHeight: 8 }} />
+        <SubmitButton loading={loading} loadingText="Signing in…" disabled={!email.trim() || !password}>
+          Sign in
+        </SubmitButton>
+        <p style={{ color: COLORS.slate, fontSize: 13, textAlign: "center", margin: "18px 0 0" }}>
           New here?{" "}
-          <Link href="/signup" style={{ color: COLORS.brass }}>
+          <Link href="/signup" className="au-link">
             Create an account
           </Link>
-			<Link href="/forgot-password" style={{ color: COLORS.brass }}>
-			Forgot password?
-			</Link>
         </p>
-      </div>
-    </Shell>
+      </form>
+    </AuthLayout>
   );
 }
