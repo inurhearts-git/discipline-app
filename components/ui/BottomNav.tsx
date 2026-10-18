@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 // Only show the bar on the main app screens (not login, onboarding, limit, etc.)
-const SHOW_ON = ["/feed", "/today", "/explore", "/people", "/submit", "/profile"];
+const SHOW_ON = ["/feed", "/today", "/explore", "/people", "/submit", "/profile", "/saved", "/journal"];
 
 export function BottomNav() {
   const pathname = usePathname() ?? "";
@@ -31,7 +31,10 @@ export function BottomNav() {
       }}
     >
       {TABS.map(({ href, label, Icon }) => {
-        const active = pathname.startsWith(href) || (href === "/explore" && pathname.startsWith("/people"));
+        const active =
+          pathname.startsWith(href) ||
+          (href === "/explore" && pathname.startsWith("/people")) ||
+          (href === "/profile" && (pathname.startsWith("/saved") || pathname.startsWith("/journal")));
         const color = active ? COLORS.brass : COLORS.slate;
         return (
           <Link

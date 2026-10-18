@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getQuoteOfTheDay } from "@/lib/qotd-server";
+import { getTodayReflection } from "@/lib/reflection";
 import { TodayClient } from "@/components/feed/TodayClient";
 
 // Quote of the day: one quote or scripture, the same for everyone, new each UTC day.
@@ -27,5 +28,7 @@ export default async function TodayPage() {
     saved = row?.saved ?? false;
   }
 
-  return <TodayClient item={item} initialLiked={liked} initialSaved={saved} />;
+  const reflection = await getTodayReflection(supabase, user.id);
+
+  return <TodayClient item={item} initialLiked={liked} initialSaved={saved} initialReflection={reflection} />;
 }

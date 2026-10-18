@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Bookmark, Heart, Share2, Sun } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { ResetCountdown } from "@/components/ui/ResetCountdown";
+import { ReflectionBox } from "@/components/ui/ReflectionBox";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
 
@@ -12,11 +13,12 @@ interface TodayClientProps {
   item: ContentItem | null;
   initialLiked: boolean;
   initialSaved: boolean;
+  initialReflection: string;
 }
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 6, display: "flex", alignItems: "center" };
 
-export function TodayClient({ item, initialLiked, initialSaved }: TodayClientProps) {
+export function TodayClient({ item, initialLiked, initialSaved, initialReflection }: TodayClientProps) {
   const [liked, setLiked] = useState(initialLiked);
   const [saved, setSaved] = useState(initialSaved);
   const [toast, setToast] = useState<string | null>(null);
@@ -115,6 +117,10 @@ export function TodayClient({ item, initialLiked, initialSaved }: TodayClientPro
               <button onClick={share} aria-label="Share" style={iconBtn}>
                 <Share2 size={24} color={COLORS.parchment} />
               </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <ReflectionBox initialText={initialReflection} contentId={item.id} prompt="What does this say to you today?" />
             </div>
 
             <div style={{ textAlign: "center", fontSize: 12, color: COLORS.slate, borderTop: `1px solid ${COLORS.line}`, paddingTop: 14 }}>

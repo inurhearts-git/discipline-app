@@ -55,6 +55,17 @@ export default async function ProfilePage() {
   const streakBase = streakThroughYesterday(pastRows, todayKey);
   const bestPast = bestStreak(pastRows);
 
+  const { count: savedCount } = await supabase
+    .from("user_content_interactions")
+    .select("content_id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("saved", true);
+  // Errors (e.g. migration 0007 not run yet) just show 0.
+  const { count: reflectionCount } = await supabase
+    .from("reflections")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   let pendingCount = 0;
   if (profile.role === "admin") {
     const { count } = await supabase
@@ -72,6 +83,8 @@ export default async function ProfilePage() {
       streakBase={streakBase}
       bestPast={bestPast}
       pendingCount={pendingCount}
+      savedCount={savedCount ?? 0}
+      reflectionCount={reflectionCount ?? 0}
     />
   );
 }

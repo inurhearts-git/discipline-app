@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Shell } from "@/components/ui/Shell";
 import { ResetCountdown } from "@/components/ui/ResetCountdown";
+import { ReflectionBox } from "@/components/ui/ReflectionBox";
+import { getTodayReflection } from "@/lib/reflection";
 import { COLORS, alpha, fmtClock, todayStr } from "@/lib/constants";
 import { STREAK_MIN_MS, streakThroughYesterday } from "@/lib/streak";
 
@@ -86,6 +88,7 @@ export default async function LimitPage() {
     recap = ranked.map((r) => byId.get(r.id)).filter((i): i is RecapItem => !!i);
   }
   const [carry, ...more] = recap;
+  const reflection = await getTodayReflection(supabase, user.id);
 
   return (
     <Shell>
@@ -169,6 +172,10 @@ export default async function LimitPage() {
             whatever lands, and it will be waiting for you here.
           </p>
         )}
+
+        <div style={{ width: "100%", maxWidth: 320, marginTop: 24 }}>
+          <ReflectionBox initialText={reflection} contentId={carry?.id ?? null} />
+        </div>
 
         <div style={{ marginTop: 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <ResetCountdown />

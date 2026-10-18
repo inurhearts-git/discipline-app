@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -23,6 +23,8 @@ interface ProfileClientProps {
   streakBase: number; // consecutive qualifying days ending yesterday
   bestPast: number; // longest run before today
   pendingCount: number;
+  savedCount: number;
+  reflectionCount: number;
 }
 
 // Literal hex on purpose: these values are saved to profiles.avatar_color,
@@ -35,7 +37,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, savedCount, reflectionCount }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -301,6 +303,23 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               );
             })}
           </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          {[
+            { href: "/saved", Icon: Bookmark, label: "Saved", count: savedCount, hint: savedCount === 1 ? "item" : "items" },
+            { href: "/journal", Icon: BookOpen, label: "Reflections", count: reflectionCount, hint: reflectionCount === 1 ? "day" : "days" },
+          ].map(({ href, Icon, label, count, hint }) => (
+            <Link key={href} href={href} style={{ flex: 1, border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, textDecoration: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Icon size={14} color={COLORS.brass} />
+                <span style={{ fontSize: 12, color: COLORS.parchment }}>{label}</span>
+              </div>
+              <div style={{ fontSize: 22, color: COLORS.parchment, fontFamily: "'Newsreader', serif", lineHeight: 1.1 }}>
+                {count} <span style={{ fontSize: 12, color: COLORS.slate, fontFamily: "inherit" }}>{hint}</span>
+              </div>
+            </Link>
+          ))}
         </div>
 
         <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
