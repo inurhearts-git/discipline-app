@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { COLORS, DAILY_LIMIT_MS, alpha, fmtClock, isAdult } from "@/lib/constants";
 import { STREAK_MILESTONES, STREAK_MIN_MS, nextMilestone } from "@/lib/streak";
 import type { Profile } from "@/lib/database.types";
+import { Stamp } from "@/components/journal/Stamp";
 
 interface UsageDay {
   date: string;
@@ -25,6 +26,8 @@ interface ProfileClientProps {
   pendingCount: number;
   savedCount: number;
   reflectionCount: number;
+  journalCount: number;
+  lastJournalAt: string | null;
 }
 
 // Literal hex on purpose: these values are saved to profiles.avatar_color,
@@ -37,7 +40,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, savedCount, reflectionCount }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, savedCount, reflectionCount, journalCount, lastJournalAt }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -305,10 +308,33 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           </div>
         </div>
 
+        <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <Link href="/journal" style={{ flex: 1, minWidth: 0, textDecoration: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <NotebookPen size={14} color={COLORS.brass} />
+                <span style={{ fontSize: 11, letterSpacing: 1.2, color: COLORS.parchment, fontWeight: 600 }}>JOURNAL</span>
+              </div>
+              <div style={{ fontSize: 22, color: COLORS.parchment, fontFamily: "'Newsreader', serif", lineHeight: 1.1 }}>
+                {journalCount} <span style={{ fontSize: 12, color: COLORS.slate, fontFamily: "inherit" }}>{journalCount === 1 ? "entry" : "entries"}</span>
+              </div>
+              <div style={{ fontSize: 11, color: COLORS.slate, marginTop: 4 }}>
+                {lastJournalAt ? <Stamp iso={lastJournalAt} prefix="Last: " /> : "Private, up to 1,000 words an entry"}
+              </div>
+            </Link>
+            <Link
+              href="/journal/new"
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 12px", borderRadius: 10, background: COLORS.brass, color: COLORS.onBrass, fontSize: 12, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}
+            >
+              <Plus size={14} /> Write
+            </Link>
+          </div>
+        </div>
+
         <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
           {[
             { href: "/saved", Icon: Bookmark, label: "Saved", count: savedCount, hint: savedCount === 1 ? "item" : "items" },
-            { href: "/journal", Icon: BookOpen, label: "Reflections", count: reflectionCount, hint: reflectionCount === 1 ? "day" : "days" },
+            { href: "/reflections", Icon: BookOpen, label: "Reflections", count: reflectionCount, hint: reflectionCount === 1 ? "day" : "days" },
           ].map(({ href, Icon, label, count, hint }) => (
             <Link key={href} href={href} style={{ flex: 1, border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, textDecoration: "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>

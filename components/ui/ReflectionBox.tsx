@@ -76,7 +76,7 @@ export function ReflectionBox({ initialText, contentId, prompt = "What will you 
           <button onClick={() => setEditing(true)} style={{ background: "none", border: "none", padding: 0, color: COLORS.brass, cursor: "pointer", fontSize: 12 }}>
             Edit
           </button>
-          <Link href="/journal" style={{ color: COLORS.slate, textDecoration: "none" }}>
+          <Link href="/reflections" style={{ color: COLORS.slate, textDecoration: "none" }}>
             All reflections
           </Link>
           <span style={{ marginLeft: "auto", fontSize: 11, color: COLORS.slate }}>Only you can see this</span>

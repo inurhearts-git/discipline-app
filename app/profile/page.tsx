@@ -66,6 +66,14 @@ export default async function ProfilePage() {
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
 
+  // Journal: entry count and the latest entry's time (0 / null before migration 0008).
+  const { data: latestEntries, count: journalCount } = await supabase
+    .from("journal_entries")
+    .select("created_at", { count: "exact" })
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
   let pendingCount = 0;
   if (profile.role === "admin") {
     const { count } = await supabase
@@ -85,6 +93,8 @@ export default async function ProfilePage() {
       pendingCount={pendingCount}
       savedCount={savedCount ?? 0}
       reflectionCount={reflectionCount ?? 0}
+      journalCount={journalCount ?? 0}
+      lastJournalAt={latestEntries?.[0]?.created_at ?? null}
     />
   );
 }
