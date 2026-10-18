@@ -313,6 +313,17 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const avatarFg = profile.avatar_color ?? "#C9A227";
   const avatarBg = alpha(avatarFg, 15);
 
+  // Dot on the sun button until today's quote of the day has been opened
+  // (/today stores the UTC date in localStorage "mf-qotd-day").
+  const [qotdNew, setQotdNew] = useState(false);
+  useEffect(() => {
+    try {
+      setQotdNew(localStorage.getItem("mf-qotd-day") !== new Date().toISOString().slice(0, 10));
+    } catch {
+      /* storage blocked: no dot */
+    }
+  }, []);
+
   if (items.length === 0) {
     return (
       <Shell>
@@ -330,17 +341,6 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   }
 
   // Over a video tile the overlays stay in the dark palette so text is readable on the thumbnail.
-  // Remember that today's quote of the day has been shown, so it stops
-  // jumping to the front on every visit (the feed page reads this cookie).
-  useEffect(() => {
-    if (!featuredId || items[index]?.id !== featuredId) return;
-    try {
-      document.cookie = `mf_qotd=${new Date().toISOString().slice(0, 10)}; path=/; max-age=172800; samesite=lax`;
-    } catch {
-      /* cookies blocked: it will simply lead the feed again next visit */
-    }
-  }, [index, items, featuredId]);
-
   const onVideo = items[index]?.type === "video";
 
   return (
@@ -371,6 +371,17 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           <Logo />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, pointerEvents: "auto" }}>
+          <Link
+            href="/today"
+            aria-label={qotdNew ? "Quote of the day (new)" : "Quote of the day"}
+            title="Quote of the day"
+            style={{ position: "relative", width: 28, height: 28, borderRadius: "50%", background: alpha(COLORS.ink, 55), display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <Sun size={15} color={COLORS.brass} />
+            {qotdNew && (
+              <span aria-hidden style={{ position: "absolute", top: 1, right: 1, width: 7, height: 7, borderRadius: "50%", background: COLORS.ember }} />
+            )}
+          </Link>
           <span
             title={todayCounted ? "Streak counted for today" : "Spend 2 minutes here today to keep your streak"}
             style={{

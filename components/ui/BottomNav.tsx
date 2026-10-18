@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 // Only show the bar on the main app screens (not login, onboarding, limit, etc.)
-const SHOW_ON = ["/feed", "/explore", "/people", "/submit", "/profile"];
+const SHOW_ON = ["/feed", "/today", "/explore", "/people", "/submit", "/profile"];
 
 export function BottomNav() {
   const pathname = usePathname() ?? "";

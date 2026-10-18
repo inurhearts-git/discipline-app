@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
 import { streakThroughYesterday } from "@/lib/streak";
 import { isMoodId } from "@/lib/moods";
-import { pickQuoteOfTheDay } from "@/lib/qotd";
+import { getQuoteOfTheDay } from "@/lib/qotd-server";
 import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
@@ -223,39 +223,9 @@ export default async function FeedPage({
     }
   }
 
-  // Quote of the day: the same quote or scripture for everyone, new each day.
-  // Until it has been shown on this browser today (mf_qotd cookie, set by the
-  // feed when the tile is on screen), it leads the feed. If the visit came from
-  // a mood pick (which happens on the first open of each day), it goes second so
-  // the mood match still opens the feed. Skipped for an Explore card or a topic.
-  let featuredId: string | null = null;
-  {
-    const { data: candidates } = await supabase
-      .from("content_items")
-      .select("id")
-      .eq("status", "approved")
-      .eq("maturity_rating", "general")
-      .in("tag", ["QUOTE", "SCRIPTURE"])
-      .limit(2000)
-      .returns<{ id: string }[]>();
-    const pick = pickQuoteOfTheDay((candidates ?? []).map((c) => c.id), todayStr());
-    if (pick) {
-      featuredId = pick;
-      const steered = !!(searchParams.item || searchParams.tag);
-      if (!steered && cookies().get("mf_qotd")?.value !== todayStr()) {
-        let found = items.find((i) => i.id === pick);
-        if (!found) {
-          const { data: one } = await supabase.from("content_items").select(ITEM_COLUMNS).eq("id", pick).maybeSingle<ContentItem>();
-          found = one ?? undefined;
-        }
-        if (found) {
-          const rest = items.filter((i) => i.id !== pick);
-          const at = mood && rest.length > 0 ? 1 : 0;
-          items = [...rest.slice(0, at), found, ...rest.slice(at)];
-        }
-      }
-    }
-  }
+  // Quote of the day now lives on its own page (/today, the sun button in the
+  // feed header). The feed only labels the tile if it turns up naturally.
+  const featuredId = (await getQuoteOfTheDay(supabase))?.id ?? null;
 
   // Music library (empty until migration 0004 is run and tracks are added)
   const { data: trackRows } = await supabase
