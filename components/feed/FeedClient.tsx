@@ -10,6 +10,8 @@ import type { ContentItem, Profile } from "@/lib/database.types";
 import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 import { ShareSheet } from "@/components/ui/ShareSheet";
+import { ListenButton } from "@/components/ui/ListenButton";
+import { useSpeech } from "@/lib/useSpeech";
 
 // Remember recently viewed items in a cookie so the server can rotate the feed
 // on the next visit (read in app/feed/page.tsx).
@@ -73,6 +75,21 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const [muted, setMuted] = useState(false);
   const [unlocked, setUnlocked] = useState(false); // browsers only allow sound after a tap
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Read-aloud: lowers the background music while a quote is being read.
+  const { supported: canSpeak, speakingId, speak, stop: stopSpeaking } = useSpeech({
+    onStart: () => {
+      if (audioRef.current) audioRef.current.volume = 0.08;
+    },
+    onEnd: () => {
+      if (audioRef.current) audioRef.current.volume = 0.35;
+    },
+  });
+  // Moving to another tile stops the reading.
+  useEffect(() => {
+    stopSpeaking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewedRef = useRef<Set<string>>(new Set());
   const lastTapRef = useRef<{ id: string; t: number } | null>(null);
@@ -648,6 +665,15 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                 >
                   <Share2 size={24} color={COLORS.parchment} />
                 </button>
+                {!isVideo && canSpeak && (
+                  <ListenButton
+                    active={speakingId === item.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speak(item.id, item.text, item.attributed_to);
+                    }}
+                  />
+                )}
 
                 <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, color: COLORS.slate }}>
                   <Eye size={16} />
