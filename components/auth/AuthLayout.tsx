@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Shell, Logo } from "@/components/ui/Shell";
-import { InkQuote } from "@/components/auth/InkQuote";
+import { InkQuote, type InkQuoteItem } from "@/components/auth/InkQuote";
 import { COLORS, alpha } from "@/lib/constants";
 
 interface AuthLayoutProps {
@@ -10,20 +10,22 @@ interface AuthLayoutProps {
   subtitle?: ReactNode;
   children: ReactNode;
   compact?: boolean; // shorter stage for long forms (sign-up)
+  quote?: InkQuoteItem | null; // today's quote of the day; null falls back to rotating lines
 }
 
-// Shared frame for sign-in, sign-up and password screens: a stage where a
-// line writes itself over a rising brass dawn, and a sheet holding the form.
+// Shared frame for sign-in, sign-up and password screens: a stage where
+// today's quote writes itself over a rising brass dawn, and a sheet holding
+// the form. The stage grows to fit long quotes.
 const HORIZON = 30; // px from the bottom of the stage
 
-export function AuthLayout({ title, subtitle, children, compact = false }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, children, compact = false, quote = null }: AuthLayoutProps) {
   const stageH = compact ? 250 : 350;
   return (
     <Shell>
       <style>{AUTH_CSS}</style>
       <div style={{ minHeight: 720, display: "flex", flexDirection: "column" }}>
         {/* Stage */}
-        <div className="au-stage" style={{ position: "relative", height: stageH, padding: "26px 28px 0", overflow: "hidden", flexShrink: 0 }}>
+        <div className="au-stage" style={{ position: "relative", minHeight: stageH, padding: `26px 28px ${HORIZON + 66}px`, overflow: "hidden", flexShrink: 0 }}>
           {/* Dawn: a brass sun rising from behind a horizon line, with a faint glow around it */}
           <div aria-hidden className="au-sun" style={{ position: "absolute", left: "50%", bottom: -150, width: 380, height: 380, marginLeft: -190, borderRadius: "50%", background: `radial-gradient(circle, ${alpha(COLORS.brass, 34)} 0%, ${alpha(COLORS.brass, 12)} 42%, ${alpha(COLORS.brass, 0)} 70%)` }} />
           <div aria-hidden style={{ position: "absolute", left: 0, right: 0, bottom: HORIZON, height: 150, overflow: "hidden" }}>
@@ -36,8 +38,8 @@ export function AuthLayout({ title, subtitle, children, compact = false }: AuthL
           <div style={{ position: "relative", zIndex: 1 }}>
             <Logo />
           </div>
-          <div style={{ position: "relative", zIndex: 1, marginTop: compact ? 22 : 54, maxWidth: 330 }}>
-            <InkQuote size={compact ? 21 : 26} />
+          <div style={{ position: "relative", zIndex: 1, marginTop: compact ? 20 : 44, maxWidth: 340 }}>
+            <InkQuote daily={quote} compact={compact} />
           </div>
         </div>
 

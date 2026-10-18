@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import { Sun } from "lucide-react";
 import { COLORS } from "@/lib/constants";
 
-// Public-domain lines that "write themselves" on the sign-in screens.
+// Fallback lines (public domain) for when the quote of the day isn't available.
 const QUOTES = [
   { text: "Waste no more time arguing what a good man should be. Be one.", by: "Marcus Aurelius" },
   { text: "We suffer more often in imagination than in reality.", by: "Seneca" },
@@ -14,13 +15,27 @@ const QUOTES = [
 ];
 
 const CHAR_MS = 32; // gap between letters appearing
-const HOLD_MS = 4200; // how long a finished line stays
+const MAX_WRITE_MS = 3600; // long passages ink faster so they never drag
+const HOLD_MS = 4200; // how long a finished line stays (rotating mode)
 const FADE_MS = 700;
 
-// Each letter fades in from a slight blur, like ink settling, then the line
-// holds, fades out and the next one begins. With reduced motion, lines simply
-// swap every few seconds with no per-letter animation.
-export function InkQuote({ size = 26 }: { size?: number }) {
+export interface InkQuoteItem {
+  text: string;
+  by: string;
+}
+
+// Type size by length, so short lines feel big and long scripture still fits.
+function sizeFor(len: number, compact: boolean): number {
+  const base = len <= 40 ? 30 : len <= 70 ? 26 : len <= 120 ? 23 : len <= 200 ? 20 : len <= 320 ? 18 : 16;
+  return compact ? Math.max(15, base - 4) : base;
+}
+
+// Each letter fades in from a slight blur, like ink settling.
+// With `daily`, today's quote of the day is written once and stays.
+// Without it (no quote available), a few public-domain lines take turns.
+// With reduced motion, the text simply appears with no per-letter animation.
+export function InkQuote({ daily, compact = false }: { daily?: InkQuoteItem | null; compact?: boolean }) {
+  const list = daily ? [daily] : QUOTES;
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [still, setStill] = useState(false);
@@ -33,9 +48,12 @@ export function InkQuote({ size = 26 }: { size?: number }) {
     }
   }, []);
 
+  const q = list[index % list.length];
+  const charMs = Math.min(CHAR_MS, MAX_WRITE_MS / Math.max(1, q.text.length));
+  const writeMs = still ? 0 : q.text.length * charMs + 500;
+
   useEffect(() => {
-    const q = QUOTES[index];
-    const writeMs = still ? 0 : q.text.length * CHAR_MS + 500;
+    if (daily) return; // the quote of the day stays put
     const t1 = setTimeout(() => setLeaving(true), writeMs + HOLD_MS);
     const t2 = setTimeout(() => {
       setLeaving(false);
@@ -45,16 +63,21 @@ export function InkQuote({ size = 26 }: { size?: number }) {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [index, still]);
+  }, [index, writeMs, daily]);
 
-  const q = QUOTES[index];
-  const authorDelay = still ? 0 : q.text.length * CHAR_MS + 150;
+  const size = sizeFor(q.text.length, compact);
+  const authorDelay = still ? 0 : q.text.length * charMs + 150;
 
   return (
     <figure
       aria-live="off"
-      style={{ margin: 0, opacity: leaving ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`, minHeight: size * 1.35 * 3 + 30 }}
+      style={{ margin: 0, opacity: leaving ? 0 : 1, transition: `opacity ${FADE_MS}ms ease`, minHeight: daily ? undefined : size * 1.35 * 3 + 30 }}
     >
+      {daily && (
+        <div className={still ? undefined : "au-fade"} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, fontSize: 12, color: COLORS.brass }}>
+          <Sun size={13} aria-hidden /> Quote of the day
+        </div>
+      )}
       <blockquote
         key={index}
         aria-label={`${q.text} (${q.by})`}
@@ -69,7 +92,7 @@ export function InkQuote({ size = 26 }: { size?: number }) {
                 <Fragment key={w}>
                   <span aria-hidden style={{ whiteSpace: "nowrap" }}>
                     {Array.from(word).map((ch, c) => (
-                      <span key={c} className="au-ink" style={{ animationDelay: `${(before + c) * CHAR_MS}ms` }}>
+                      <span key={c} className="au-ink" style={{ animationDelay: `${(before + c) * charMs}ms` }}>
                         {ch}
                       </span>
                     ))}
