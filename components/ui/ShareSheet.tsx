@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Link2, Share2, X } from "lucide-react";
+import { Copy, Download, Link2, Share2, X } from "lucide-react";
 import { COLORS, alpha } from "@/lib/constants";
 
 interface ShareSheetProps {
@@ -19,6 +19,11 @@ export function ShareSheet({ item, onClose, onToast }: ShareSheetProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [canShareFile, setCanShareFile] = useState(false);
+  // Copying a picture to the clipboard (Chrome, Edge, Safari, recent Firefox).
+  const [canCopy, setCanCopy] = useState(false);
+  useEffect(() => {
+    setCanCopy(typeof window !== "undefined" && "ClipboardItem" in window && !!navigator.clipboard?.write);
+  }, []);
 
   useEffect(() => {
     let url: string | null = null;
@@ -58,16 +63,27 @@ export function ShareSheet({ item, onClose, onToast }: ShareSheetProps) {
 
   const shareImage = async () => {
     if (!file) return;
-    if (canShareFile) {
-      try {
-        await navigator.share({ files: [file], title: "Discipline", text: `“${item.text}” — ${item.attributed_to}` });
-        onClose();
-      } catch {
-        // Dismissed: keep the sheet open.
-      }
-      return;
+    try {
+      await navigator.share({ files: [file], title: "Discipline", text: `“${item.text}” — ${item.attributed_to}` });
+      onClose();
+    } catch {
+      // Dismissed: keep the sheet open.
     }
-    // No file sharing (most desktops): download it instead.
+  };
+
+  const copyImage = async () => {
+    if (!file) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": file })]);
+      onToast("Image copied");
+      onClose();
+    } catch {
+      onToast("Couldn't copy the image. Try Download.");
+    }
+  };
+
+  const downloadImage = () => {
+    if (!file) return;
     const a = document.createElement("a");
     a.href = preview ?? URL.createObjectURL(file);
     a.download = file.name;
@@ -147,11 +163,33 @@ export function ShareSheet({ item, onClose, onToast }: ShareSheetProps) {
           )}
         </div>
 
+        {/* Phones: Share image leads. Computers: Copy image leads (or Download if copying isn't supported). */}
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={shareImage} disabled={!file} style={btn(true, !file)}>
-            {canShareFile ? <Share2 size={16} /> : <Download size={16} />}
-            {canShareFile ? "Share image" : "Download image"}
-          </button>
+          {canShareFile ? (
+            <button onClick={shareImage} disabled={!file} style={btn(true, !file)}>
+              <Share2 size={16} /> Share image
+            </button>
+          ) : canCopy ? (
+            <button onClick={copyImage} disabled={!file} style={btn(true, !file)}>
+              <Copy size={16} /> Copy image
+            </button>
+          ) : (
+            <button onClick={downloadImage} disabled={!file} style={btn(true, !file)}>
+              <Download size={16} /> Download image
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {canShareFile && canCopy && (
+            <button onClick={copyImage} disabled={!file} style={btn(false, !file)}>
+              <Copy size={16} /> Copy image
+            </button>
+          )}
+          {(canShareFile || canCopy) && (
+            <button onClick={downloadImage} disabled={!file} style={btn(false, !file)}>
+              <Download size={16} /> Download
+            </button>
+          )}
           <button onClick={shareLink} style={btn(false)}>
             <Link2 size={16} /> {typeof navigator !== "undefined" && "share" in navigator ? "Share link" : "Copy link"}
           </button>
