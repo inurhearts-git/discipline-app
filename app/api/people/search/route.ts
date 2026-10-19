@@ -13,6 +13,11 @@ interface YouTubeResult {
 
 const CACHE_TTL_HOURS = 24;
 
+// Bump this when the search filters below change, so results cached under the
+// old filters (which could include videos that can't play inside the app) are
+// ignored instead of being served for another 24 hours.
+const CACHE_VERSION = "v2";
+
 // GET /api/people/search?q=David+Goggins
 //
 // This is the piece the artifact prototype could never do: the API key
@@ -37,7 +42,7 @@ export async function GET(request: Request) {
   const q = searchParams.get("q")?.trim();
   if (!q) return NextResponse.json({ error: "Missing query" }, { status: 400 });
 
-  const normalizedQuery = q.toLowerCase();
+  const normalizedQuery = `${CACHE_VERSION}:${q.toLowerCase()}`;
   const admin = createAdminClient();
 
   // Blueprint §4: "Cache search results (e.g. 24h) in Postgres so repeated
@@ -63,6 +68,11 @@ export async function GET(request: Request) {
     part: "snippet",
     q: `${q} speech interview motivational`,
     type: "video",
+    // Only videos the owner allows to be embedded AND played on other sites.
+    // Without these, results can show "Video unavailable" inside the feed.
+    videoEmbeddable: "true",
+    videoSyndicated: "true",
+    safeSearch: "moderate",
     maxResults: "12",
     key: process.env.YOUTUBE_API_KEY,
   });
