@@ -1,0 +1,115 @@
+import type { Metadata } from "next";
+import { Bullets, LegalPage } from "@/components/legal/LegalPage";
+import { APP_NAME, CONTACT_LINE } from "@/lib/legal";
+
+export const metadata: Metadata = { title: `Privacy · ${APP_NAME}` };
+
+const link = { color: "var(--brass)" } as const;
+
+export default function PrivacyPage() {
+  return (
+    <LegalPage
+      title="Privacy"
+      otherHref="/terms"
+      otherLabel="Read the Terms of use →"
+      intro={<p style={{ margin: 0 }}>This explains what {APP_NAME} collects about you, why, who helps us run it, and the choices you have. We try to collect only what the app needs.</p>}
+      sections={[
+        {
+          heading: "What we collect",
+          body: (
+            <Bullets
+              items={[
+                "Your account: name, email address and password (the password is stored in a protected form by our sign-in provider, and we can't read it).",
+                "Your date of birth, which we use to check you are 18 or older.",
+                "What you set up: interests, bio, avatar colour, and the mood you pick.",
+                "How you use the app: the time you spend each day (for the daily limit and streaks), and which items you view, like or save.",
+                "What you write: one-line reflections, private journal entries, and anything you submit or report.",
+                "That you accepted these terms, and when.",
+              ]}
+            />
+          ),
+        },
+        {
+          heading: "Why we use it",
+          body: (
+            <p style={{ margin: 0 }}>
+              To run your account, enforce the daily limit and the age rule, show your streak, order your feed toward what you like, show your saved items and reflections back to you, review submissions and reports, and keep the service
+              safe. We don&apos;t sell your information, and we don&apos;t show ads.
+            </p>
+          ),
+        },
+        {
+          heading: "Your journal and reflections",
+          body: (
+            <p style={{ margin: 0 }}>
+              These are private to your account in the app. They are stored in our database, so the person who runs the service has technical access to it, and we may be required to disclose data by law. We don&apos;t read journals as part
+              of running the app. Please don&apos;t write anything in the journal that you would not want stored.
+            </p>
+          ),
+        },
+        {
+          heading: "Who helps us run it",
+          body: (
+            <>
+              <Bullets
+                items={[
+                  "Supabase: our database and sign-in.",
+                  "Vercel: hosting.",
+                  "Resend: sign-up and password emails.",
+                  "Anthropic: its Claude AI drafts the plain-language meanings of public quotes. Only the public quote text is sent, never your personal information.",
+                  <>
+                    YouTube (Google): videos play in YouTube&apos;s embedded player. When you play a video, Google may collect data under the{" "}
+                    <a href="https://policies.google.com/privacy" style={link} target="_blank" rel="noopener noreferrer">
+                      Google Privacy Policy
+                    </a>
+                    , and the{" "}
+                    <a href="https://www.youtube.com/t/terms" style={link} target="_blank" rel="noopener noreferrer">
+                      YouTube Terms of Service
+                    </a>{" "}
+                    apply.
+                  </>,
+                ]}
+              />
+              <p style={{ margin: 0 }}>These companies may process data in countries other than yours.</p>
+            </>
+          ),
+        },
+        {
+          heading: "Cookies and storage on your device",
+          body: (
+            <p style={{ margin: 0 }}>
+              We store small items in your browser to keep you signed in and to remember things like your theme, the mood you picked today, which items you recently saw (so your feed stays fresh), and unsaved journal drafts. We don&apos;t use
+              advertising or tracking cookies of our own.
+            </p>
+          ),
+        },
+        {
+          heading: "How long we keep it",
+          body: <p style={{ margin: 0 }}>We keep your information while your account is open. When you ask us to delete your account, we delete your personal data, except what we must keep by law.</p>,
+        },
+        {
+          heading: "Your rights",
+          body: (
+            <p style={{ margin: 0 }}>
+              Depending on where you live (for example under UK data protection law or India&apos;s Digital Personal Data Protection Act), you can ask to see, correct or delete your information, withdraw consent, and complain to the
+              data protection authority. You can edit most of your details on your Profile page. For anything else, contact us as below.
+            </p>
+          ),
+        },
+        {
+          heading: "Age",
+          body: <p style={{ margin: 0 }}>{APP_NAME} is for people aged 18 or over. We don&apos;t knowingly collect information from anyone younger, and we delete it if we learn we have.</p>,
+        },
+        {
+          heading: "Changes and contact",
+          body: (
+            <>
+              <p style={{ margin: "0 0 10px" }}>If this policy changes, the version date at the top changes.</p>
+              <p style={{ margin: 0 }}>{CONTACT_LINE}</p>
+            </>
+          ),
+        },
+      ]}
+    />
+  );
+}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame, Sun } from "lucide-react";
+import { Heart, Bookmark, Share2, Play, X, Clock, Eye, Volume2, VolumeX, Flame, Sun, Flag } from "lucide-react";
 import { Shell, Logo } from "@/components/ui/Shell";
 import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCount, tagColor } from "@/lib/constants";
 import type { ContentItem, Profile } from "@/lib/database.types";
@@ -11,6 +11,7 @@ import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
+import { ReportSheet } from "@/components/ui/ReportSheet";
 
 // Remember recently viewed items in a cookie so the server can rotate the feed
 // on the next visit (read in app/feed/page.tsx).
@@ -263,6 +264,8 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const hasMeaning = useMemo(() => new Set(meaningIds), [meaningIds]);
   const [meaningFor, setMeaningFor] = useState<string | null>(null);
   const closeMeaning = useCallback(() => setMeaningFor(null), []);
+  const [reportFor, setReportFor] = useState<string | null>(null);
+  const closeReport = useCallback(() => setReportFor(null), []);
 
   // Quotes and scripture open the share sheet (image card or link); videos share the link.
   const [shareItem, setShareItem] = useState<ContentItem | null>(null);
@@ -661,6 +664,16 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                 >
                   <Share2 size={24} color={COLORS.parchment} />
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReportFor(item.id);
+                  }}
+                  aria-label="Report an error"
+                  style={iconBtn}
+                >
+                  <Flag size={18} color={COLORS.slate} />
+                </button>
                 <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, color: COLORS.slate }}>
                   <Eye size={16} />
                   {fmtCount(viewCounts[item.id] ?? item.view_count)}
@@ -775,6 +788,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         </div>
       )}
       {meaningFor && <MeaningSheet contentId={meaningFor} onClose={closeMeaning} />}
+      {reportFor && <ReportSheet contentId={reportFor} onClose={closeReport} />}
       {shareItem && (
         <ShareSheet
           item={shareItem}

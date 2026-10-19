@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus, Flag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -11,6 +11,7 @@ import { COLORS, DAILY_LIMIT_MS, alpha, fmtClock, isAdult } from "@/lib/constant
 import { STREAK_MILESTONES, STREAK_MIN_MS, nextMilestone } from "@/lib/streak";
 import type { Profile } from "@/lib/database.types";
 import { Stamp } from "@/components/journal/Stamp";
+import { LegalLinks } from "@/components/legal/LegalLinks";
 
 interface UsageDay {
   date: string;
@@ -437,6 +438,21 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             )}
           </Link>
         )}
+
+        {profile.role === "admin" && (
+          <Link
+            href="/moderate/reports"
+            style={{ textAlign: "left", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginTop: 12, background: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
+          >
+            <Flag size={16} color={COLORS.parchment} />
+            <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Reported errors</div>
+          </Link>
+        )}
+
+        <p style={{ margin: "22px 0 0", fontSize: 11, lineHeight: 1.55, color: COLORS.slate, textAlign: "center" }}>
+          Quotes and sources come from public places and may be wrong. Check the source before changing anything in your life.
+        </p>
+        <LegalLinks />
       </div>
     </Shell>
   );

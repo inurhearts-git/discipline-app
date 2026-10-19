@@ -1,13 +1,13 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/terms", "/privacy"];
 
 // Unlike /login and /signup, /reset-password must stay reachable even for
 // someone who already has a session -- clicking the emailed reset link
 // creates a temporary "recovery" session, and we want them to land on the
 // password form, not get redirected straight to /feed.
-const NO_REDIRECT_IF_LOGGED_IN = ["/reset-password"];
+const NO_REDIRECT_IF_LOGGED_IN = ["/reset-password", "/terms", "/privacy"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });

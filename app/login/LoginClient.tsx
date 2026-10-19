@@ -9,6 +9,7 @@ import type { InkQuoteItem } from "@/components/auth/InkQuote";
 import { Field, FormError, SubmitButton } from "@/components/auth/Fields";
 import { friendlyAuthError } from "@/lib/auth-errors";
 import { COLORS } from "@/lib/constants";
+import { LegalLinks } from "@/components/legal/LegalLinks";
 
 export function LoginClient({ quote }: { quote: InkQuoteItem | null }) {
   const router = useRouter();
@@ -56,6 +57,7 @@ export function LoginClient({ quote }: { quote: InkQuoteItem | null }) {
             Create an account
           </Link>
         </p>
+        <LegalLinks />
       </form>
     </AuthLayout>
   );

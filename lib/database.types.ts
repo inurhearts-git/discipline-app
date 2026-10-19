@@ -18,6 +18,8 @@ export interface Profile {
   avatar_color: string | null;
   interests: ContentTag[];
   onboarded: boolean;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   created_at: string;
 }
 
