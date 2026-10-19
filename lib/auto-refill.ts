@@ -142,7 +142,7 @@ export async function runRefill(admin: SupabaseClient, apiKey: string): Promise<
   result.checked = candidates.length;
 
   // 5) Length, embed status and live status, 50 videos per call.
-  const info = new Map<string, { sec: number; embeddable: boolean; isPublic: boolean; live: boolean }>();
+  const info = new Map<string, { sec: number; embeddable: boolean; isPublic: boolean; live: boolean; restricted: boolean }>();
   for (let i = 0; i < candidates.length; i += 50) {
     const batch = candidates.slice(i, i + 50);
     const params = new URLSearchParams({ part: "contentDetails,status,snippet", id: batch.map((b) => b.videoId).join(","), maxResults: "50", key: apiKey });
@@ -159,6 +159,8 @@ export async function runRefill(admin: SupabaseClient, apiKey: string): Promise<
         embeddable: v.status?.embeddable === true,
         isPublic: v.status?.privacyStatus === "public",
         live: (v.snippet?.liveBroadcastContent ?? "none") !== "none",
+        // A clip blocked in some countries may not play for everyone.
+        restricted: (v.contentDetails?.regionRestriction?.blocked?.length ?? 0) > 0 || v.contentDetails?.regionRestriction?.allowed !== undefined,
       });
     }
   }
@@ -168,7 +170,7 @@ export async function runRefill(admin: SupabaseClient, apiKey: string): Promise<
   const rows: Record<string, unknown>[] = [];
   for (const u of candidates) {
     const i = info.get(u.videoId);
-    if (!i || !i.embeddable || !i.isPublic) {
+    if (!i || !i.embeddable || !i.isPublic || i.restricted) {
       result.skipped.notEmbeddable++;
       continue;
     }
