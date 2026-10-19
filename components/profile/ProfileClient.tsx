@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus, Flag, RefreshCw } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus, Flag, RefreshCw, Layers } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -457,6 +457,16 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           >
             <RefreshCw size={16} color={COLORS.parchment} />
             <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Auto refill</div>
+          </Link>
+        )}
+
+        {profile.role === "admin" && (
+          <Link
+            href="/moderate/collections"
+            style={{ textAlign: "left", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginTop: 12, background: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
+          >
+            <Layers size={16} color={COLORS.parchment} />
+            <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Collections</div>
           </Link>
         )}
 

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { COLORS, isAdult, tagColor } from "@/lib/constants";
+import { COLORS, alpha, isAdult, tagColor } from "@/lib/constants";
+import { COLLECTION_COLUMNS, type Collection } from "@/lib/collections";
 import { Shell, Logo } from "@/components/ui/Shell";
 import { ContentCard, type CardItem, type Tag } from "@/components/explore/ContentCard";
 
@@ -43,6 +44,24 @@ export default async function ExplorePage() {
   const { data } = await q;
   const items = (data ?? []) as Row[];
 
+  // Collections (migration 0014). If the table isn't there yet this is just empty.
+  const { data: collectionRows } = await supabase
+    .from("collections")
+    .select(COLLECTION_COLUMNS)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(20)
+    .returns<Collection[]>();
+  const collections: (Collection & { count: number })[] = [];
+  for (const c of collectionRows ?? []) {
+    let cq = supabase.from("content_items").select("id", { count: "exact", head: true }).eq("status", "approved");
+    if (!isAdult(profile.birthdate)) cq = cq.eq("maturity_rating", "general");
+    if (c.tags.length) cq = cq.in("tag", c.tags);
+    if (c.moods.length) cq = cq.overlaps("moods", c.moods);
+    const { count } = await cq;
+    if ((count ?? 0) > 0) collections.push({ ...c, count: count ?? 0 });
+  }
+
   const newest = items.slice(0, 10);
   const trending = [...items].sort((a, b) => b.view_count - a.view_count).slice(0, 10);
 
@@ -68,6 +87,34 @@ export default async function ExplorePage() {
         <p style={{ padding: 28, color: COLORS.slate, fontSize: 13 }}>Nothing to explore yet.</p>
       ) : (
         <>
+          {collections.length > 0 && (
+            <Section title="Collections">
+              <div className="mf-scroll" style={rowStyle}>
+                {collections.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/feed?collection=${c.id}`}
+                    style={{
+                      flexShrink: 0,
+                      width: 168,
+                      padding: 14,
+                      borderRadius: 14,
+                      border: `1px solid ${COLORS.line}`,
+                      background: `linear-gradient(160deg, ${alpha(COLORS.brass, 12)} 0%, transparent 70%)`,
+                      textDecoration: "none",
+                      color: COLORS.parchment,
+                    }}
+                  >
+                    <div style={{ fontSize: 26, marginBottom: 8 }}>{c.emoji}</div>
+                    <div style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", fontSize: 18, lineHeight: 1.2 }}>{c.title}</div>
+                    {c.blurb && <div style={{ fontSize: 11, lineHeight: 1.45, color: COLORS.slate, marginTop: 6 }}>{c.blurb}</div>}
+                    <div style={{ fontSize: 11, color: COLORS.brass, marginTop: 8 }}>{c.count} item{c.count === 1 ? "" : "s"}</div>
+                  </Link>
+                ))}
+              </div>
+            </Section>
+          )}
+
           <Section title="Topics">
             <div className="mf-scroll" style={rowStyle}>
               {[...tagCounts.entries()].map(([tag, n]) => (
