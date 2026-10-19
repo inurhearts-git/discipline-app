@@ -16,7 +16,6 @@ interface YouTubeResult {
   channelId: string;
   thumbnail: string;
   publishedAt: string;
-  durationSec: number;
 }
 
 // YouTube titles can arrive HTML-encoded (&amp;, &#39;); clean them for captions.
@@ -83,7 +82,7 @@ export function BulkAddClient() {
         return;
       }
       setResults(data.results);
-      if (data.results.length === 0) setSearchError("No clips of 30 seconds to 2 minutes found. Try a different name.");
+      if (data.results.length === 0) setSearchError("No videos found. Try a different name.");
     } catch {
       setSearchError("Search failed. Check your connection and try again.");
     } finally {
@@ -232,7 +231,7 @@ export function BulkAddClient() {
 
         {searchesLeft !== null && (
           <p style={{ color: searchesLeft <= 5 ? COLORS.danger : COLORS.slate, fontSize: 11, margin: "0 0 10px" }}>
-            {searchesLeft} new {searchesLeft === 1 ? "search" : "searches"} left today. Repeat searches from the last 24 hours are free. Only clips of 30 seconds to 2 minutes are shown.
+            {searchesLeft} new {searchesLeft === 1 ? "search" : "searches"} left today. Repeat searches from the last 24 hours are free. Only videos under 4 minutes are shown.
           </p>
         )}
 
@@ -285,7 +284,7 @@ export function BulkAddClient() {
                           {decodeEntities(r.title)}
                         </div>
                         <div style={{ color: COLORS.slate, fontSize: 11, marginTop: 2 }}>
-                          {done ? "Added to the feed" : on ? `${r.channel}: ticked` : r.channel}{r.durationSec ? ` · ${Math.floor(r.durationSec / 60)}:${String(r.durationSec % 60).padStart(2, "0")}` : ""}
+                          {done ? "Added to the feed" : on ? `${r.channel}: ticked` : r.channel}
                         </div>
                       </div>
                     </button>

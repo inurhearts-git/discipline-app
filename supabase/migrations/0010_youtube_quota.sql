@@ -1,7 +1,7 @@
 -- 0010: count YouTube API quota used per day, so the admin pages can show
 -- "N searches left today".
 --
--- YouTube gives 10,000 units a day (searches cost 100, video lookups 1) and
+-- YouTube gives 10,000 units a day (each search costs 100) and
 -- resets at midnight Pacific time. YouTube can't tell us what's left, so the
 -- app keeps its own tally here. Only the server touches this table.
 --

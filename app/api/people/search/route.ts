@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  COST_PER_FRESH_SEARCH,
-  LOOKUP_COST,
-  MAX_CLIP_SECONDS,
-  MIN_CLIP_SECONDS,
-  SEARCH_COST,
-  getUnitsUsed,
-  parseIsoDuration,
-  recordUsage,
-  searchesLeft,
-} from "@/lib/youtube-quota";
+import { COST_PER_FRESH_SEARCH, SEARCH_COST, getUnitsUsed, recordUsage, searchesLeft } from "@/lib/youtube-quota";
 
 interface YouTubeResult {
   videoId: string;
@@ -20,15 +10,14 @@ interface YouTubeResult {
   channelId: string;
   thumbnail: string;
   publishedAt: string;
-  durationSec: number;
 }
 
 const CACHE_TTL_HOURS = 24;
 
 // Bump this when the search filters below change, so results cached under the
 // old filters (which could include videos that can't play inside the app, or
-// clips of the wrong length) are ignored instead of being served for 24 hours.
-const CACHE_VERSION = "v3";
+// long videos) are ignored instead of being served for 24 hours.
+const CACHE_VERSION = "v4";
 
 // GET /api/people/search?q=David+Goggins
 //
@@ -36,11 +25,11 @@ const CACHE_VERSION = "v3";
 // and the frontend only ever talks to this route.
 //
 // Only creators/admins can search: this is a submission tool, and every fresh
-// search costs real API quota (100 units of the 10,000 free per day, plus 1 to
-// look up the length and embed status of the results). Results are cached for
+// search costs real API quota (100 units of the 10,000 free per day). Results are cached for
 // 24 hours, and cached searches cost nothing.
 //
-// Only clips of 30 seconds to 2 minutes that can be embedded are returned.
+// Only videos under 4 minutes (YouTube's own "short" filter) that can be
+// embedded are returned.
 export async function GET(request: Request) {
   const supabase = createClient();
   const {
@@ -102,9 +91,7 @@ export async function GET(request: Request) {
     );
   }
 
-  // 1) Search. "short" means under 4 minutes, which narrows the field before
-  //    we measure each clip exactly. 25 results cost the same as 12, and we
-  //    expect to discard many of them for length.
+  // "short" is YouTube's own filter for videos under 4 minutes.
   const searchParams2 = new URLSearchParams({
     part: "snippet",
     q: `${q} speech interview motivational`,
@@ -114,7 +101,7 @@ export async function GET(request: Request) {
     videoEmbeddable: "true",
     videoSyndicated: "true",
     safeSearch: "moderate",
-    maxResults: "25",
+    maxResults: "12",
     key,
   });
 
@@ -126,11 +113,9 @@ export async function GET(request: Request) {
       { status: ytRes.status === 403 ? 429 : 502 }
     );
   }
-  // The search was billed, whatever it returns.
-  let unitsSpent = SEARCH_COST;
   const data = await ytRes.json();
 
-  const found: Omit<YouTubeResult, "durationSec">[] = (data.items ?? [])
+  const results: YouTubeResult[] = (data.items ?? [])
     .filter((item: any) => item.id?.videoId)
     .map((item: any) => ({
       videoId: item.id.videoId,
@@ -141,40 +126,8 @@ export async function GET(request: Request) {
       publishedAt: item.snippet.publishedAt,
     }));
 
-  // 2) Look up each clip's exact length and embed status (1 unit for up to 50).
-  const results: YouTubeResult[] = [];
-  if (found.length > 0) {
-    const lookupParams = new URLSearchParams({
-      part: "contentDetails,status",
-      id: found.map((f) => f.videoId).join(","),
-      maxResults: "50",
-      key,
-    });
-    const lookupRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?${lookupParams}`);
-    if (!lookupRes.ok) {
-      await recordUsage(admin, unitsSpent, 1);
-      return NextResponse.json(
-        { error: "Couldn't check clip lengths with YouTube. Try again in a moment.", searchesLeft: await leftNow() },
-        { status: 502 }
-      );
-    }
-    unitsSpent += LOOKUP_COST;
-    const lookup = await lookupRes.json();
-    const info = new Map<string, { sec: number; ok: boolean }>();
-    for (const v of lookup.items ?? []) {
-      const sec = parseIsoDuration(v.contentDetails?.duration);
-      const ok = v.status?.embeddable === true && v.status?.privacyStatus === "public";
-      info.set(v.id, { sec, ok });
-    }
-    for (const f of found) {
-      const i = info.get(f.videoId);
-      if (!i || !i.ok) continue;
-      if (i.sec < MIN_CLIP_SECONDS || i.sec > MAX_CLIP_SECONDS) continue;
-      results.push({ ...f, durationSec: i.sec });
-    }
-  }
-
-  await recordUsage(admin, unitsSpent, 1);
+  // The search was billed, whatever it returns.
+  await recordUsage(admin, SEARCH_COST, 1);
 
   await admin
     .from("youtube_search_cache")
