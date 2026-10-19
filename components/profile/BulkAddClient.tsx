@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Loader2, Plus } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
@@ -16,6 +16,7 @@ interface YouTubeResult {
   channelId: string;
   thumbnail: string;
   publishedAt: string;
+  durationSec: number;
 }
 
 // YouTube titles can arrive HTML-encoded (&amp;, &#39;); clean them for captions.
@@ -37,6 +38,8 @@ export function BulkAddClient() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [results, setResults] = useState<YouTubeResult[]>([]);
+  // Fresh searches left today (null until the first search, or if the counter isn't set up).
+  const [searchesLeft, setSearchesLeft] = useState<number | null>(null);
 
   // videoId -> caption (editable). Only ticked videos are in here.
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -49,6 +52,16 @@ export function BulkAddClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Show the searches-left counter as soon as the page opens.
+  useEffect(() => {
+    fetch("/api/people/search?status=1")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.searchesLeft === "number") setSearchesLeft(d.searchesLeft);
+      })
+      .catch(() => {});
+  }, []);
 
   const pickedIds = Object.keys(picked);
 
@@ -64,12 +77,13 @@ export function BulkAddClient() {
     try {
       const res = await fetch(`/api/people/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
+      if (typeof data.searchesLeft === "number") setSearchesLeft(data.searchesLeft);
       if (!res.ok) {
         setSearchError(data.error || "Search failed.");
         return;
       }
       setResults(data.results);
-      if (data.results.length === 0) setSearchError("No videos found. Try a different name.");
+      if (data.results.length === 0) setSearchError("No clips of 30 seconds to 2 minutes found. Try a different name.");
     } catch {
       setSearchError("Search failed. Check your connection and try again.");
     } finally {
@@ -216,6 +230,12 @@ export function BulkAddClient() {
           }}
         />
 
+        {searchesLeft !== null && (
+          <p style={{ color: searchesLeft <= 5 ? COLORS.danger : COLORS.slate, fontSize: 11, margin: "0 0 10px" }}>
+            {searchesLeft} new {searchesLeft === 1 ? "search" : "searches"} left today. Repeat searches from the last 24 hours are free. Only clips of 30 seconds to 2 minutes are shown.
+          </p>
+        )}
+
         {searchError && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 10px" }}>{searchError}</p>}
 
         {results.length > 0 && (
@@ -265,7 +285,7 @@ export function BulkAddClient() {
                           {decodeEntities(r.title)}
                         </div>
                         <div style={{ color: COLORS.slate, fontSize: 11, marginTop: 2 }}>
-                          {done ? "Added to the feed" : on ? `${r.channel}: ticked` : r.channel}
+                          {done ? "Added to the feed" : on ? `${r.channel}: ticked` : r.channel}{r.durationSec ? ` · ${Math.floor(r.durationSec / 60)}:${String(r.durationSec % 60).padStart(2, "0")}` : ""}
                         </div>
                       </div>
                     </button>
