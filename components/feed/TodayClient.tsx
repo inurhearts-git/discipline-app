@@ -7,9 +7,7 @@ import { Shell } from "@/components/ui/Shell";
 import { ResetCountdown } from "@/components/ui/ResetCountdown";
 import { ReflectionBox } from "@/components/ui/ReflectionBox";
 import { ShareSheet } from "@/components/ui/ShareSheet";
-import { ListenButton } from "@/components/ui/ListenButton";
 import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
-import { useSpeech } from "@/lib/useSpeech";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
 
@@ -28,7 +26,6 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
   const [saved, setSaved] = useState(initialSaved);
   const [toast, setToast] = useState<string | null>(null);
   const [meaningOpen, setMeaningOpen] = useState(false);
-  const { supported: canSpeak, speakingId, speak } = useSpeech();
 
   // Clears the dot on the feed's sun button for the rest of the UTC day.
   useEffect(() => {
@@ -112,7 +109,6 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
               <button onClick={share} aria-label="Share" style={iconBtn}>
                 <Share2 size={24} color={COLORS.parchment} />
               </button>
-              {canSpeak && <ListenButton active={speakingId === item.id} onClick={() => speak(item.id, item.text, item.attributed_to)} style={iconBtn} />}
             </div>
 
             <div style={{ marginBottom: 16 }}>
