@@ -513,7 +513,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
                 <div style={{ position: "absolute", inset: 0, background: "#000", zIndex: 5 }}>
                   <iframe
                     title={item.attributed_to}
-                    src={`https://www.youtube.com/embed/${item.video_id}?autoplay=1&playsinline=1&rel=0`}
+                    src={`https://www.youtube.com/embed/${item.video_id}?autoplay=1&playsinline=1&rel=0&origin=${encodeURIComponent(typeof window !== "undefined" ? window.location.origin : "")}`}
                     referrerPolicy="strict-origin-when-cross-origin"
                     style={{ width: "100%", height: "100%", border: "none" }}
                     allow="autoplay; encrypted-media"
