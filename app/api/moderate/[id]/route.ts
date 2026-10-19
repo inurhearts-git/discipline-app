@@ -44,6 +44,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (action === "approved" && (body.maturity_rating === "general" || body.maturity_rating === "mature")) {
     update.maturity_rating = body.maturity_rating;
   }
+  // Video captions (often a raw YouTube title) can be tidied at approval.
+  if (action === "approved" && typeof body.text === "string") {
+    const text = body.text.trim();
+    if (text.length > 0 && text.length <= 300) update.text = text;
+  }
   if (action === "approved" && Array.isArray(body.moods)) {
     // Only accept known moods, de-duplicated.
     update.moods = Array.from(

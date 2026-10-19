@@ -19,7 +19,7 @@ export default async function ModeratePage() {
   const { data: pending } = await supabase
     .from("content_items")
     .select(
-      "id, tag, text, attributed_to, source, type, video_id, maturity_rating, moods, submitted_by, submitted_by_profile:profiles!content_items_submitted_by_fkey(display_name)"
+      "id, tag, text, attributed_to, source, type, video_id, maturity_rating, moods, auto_added, submitted_by, submitted_by_profile:profiles!content_items_submitted_by_fkey(display_name)"
     )
     .eq("status", "pending")
     .order("created_at", { ascending: true });

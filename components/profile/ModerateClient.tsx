@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Trash2, Plus, Lightbulb } from "lucide-react";
+import { Check, Trash2, Plus, Lightbulb, RefreshCw, Play } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
@@ -31,6 +31,10 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
     Object.fromEntries(initialPending.map((p) => [p.id, moodsOf(p)]))
   );
 
+  // Editable captions for video clips (a raw YouTube title is often untidy).
+  const [texts, setTexts] = useState<Record<string, string>>(Object.fromEntries(initialPending.map((p) => [p.id, p.text])));
+  const isAuto = (item: ContentItem) => (item as ContentItem & { auto_added?: boolean }).auto_added === true;
+
   const toggleMood = (itemId: string, mood: MoodId) =>
     setMoodsById((prev) => {
       const current = prev[itemId] ?? [];
@@ -51,6 +55,7 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
           action,
           maturity_rating: action === "approve" ? ratings[item.id] : undefined,
           moods: action === "approve" ? moodsById[item.id] ?? [] : undefined,
+          text: action === "approve" && item.type === "video" ? texts[item.id] : undefined,
         }),
       });
       if (res.ok) {
@@ -118,13 +123,62 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
           <Lightbulb size={14} /> Review meanings
         </button>
 
+        <button
+          onClick={() => router.push("/moderate/refill")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "9px 10px",
+            margin: "-10px 0 18px",
+            borderRadius: 8,
+            fontSize: 12,
+            border: `1px solid ${COLORS.line}`,
+            background: "transparent",
+            color: COLORS.parchment,
+            cursor: "pointer",
+          }}
+        >
+          <RefreshCw size={14} /> Auto refill
+        </button>
+
         {error && <p style={{ color: COLORS.danger, fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
         {pending.length === 0 && <p style={{ color: COLORS.slate, fontSize: 13, textAlign: "center", marginTop: 60 }}>Nothing waiting on you.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
           {pending.map((item) => (
             <div key={item.id} style={{ border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14 }}>
               <span style={{ fontSize: 10, letterSpacing: 1, color: tagColor(item.tag) }}>{item.tag}</span>
-              <p style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", color: COLORS.parchment, fontSize: 15, margin: "6px 0" }}>{item.text}</p>
+              {isAuto(item) && (
+                <span style={{ marginLeft: 8, fontSize: 10, padding: "1px 6px", borderRadius: 4, border: `1px solid ${COLORS.line}`, color: COLORS.slate }}>Auto-added</span>
+              )}
+              {item.type === "video" && item.video_id ? (
+                <>
+                  <a
+                    href={`https://www.youtube.com/watch?v=${item.video_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Watch this clip on YouTube (opens a new tab)"
+                    style={{ position: "relative", display: "block", margin: "8px 0", borderRadius: 8, overflow: "hidden", lineHeight: 0 }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`https://img.youtube.com/vi/${item.video_id}/mqdefault.jpg`} alt="" width={320} height={180} style={{ width: "100%", height: "auto", display: "block" }} />
+                    <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.25)" }}>
+                      <Play size={28} color="#fff" fill="#fff" aria-hidden />
+                    </span>
+                  </a>
+                  <input
+                    className="mf-input"
+                    aria-label="Caption"
+                    value={texts[item.id] ?? item.text}
+                    maxLength={300}
+                    onChange={(e) => setTexts((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    style={{ marginBottom: 8 }}
+                  />
+                </>
+              ) : (
+                <p style={{ fontFamily: "'Newsreader', serif", fontStyle: "italic", color: COLORS.parchment, fontSize: 15, margin: "6px 0" }}>{item.text}</p>
+              )}
               <p style={{ fontSize: 12, color: COLORS.slate, margin: "0 0 4px" }}>
                 {item.attributed_to}
                 {item.source ? ` · ${item.source}` : ""}
