@@ -105,7 +105,7 @@ export default function TermsPage() {
           heading: "Changes and ending",
           body: (
             <p style={{ margin: 0 }}>
-              We may update these terms. When we do, the version date at the top changes, and we may ask you to agree again. You can stop using {APP_NAME} at any time and ask us to delete your account.
+              We may update these terms. When we do, the version date at the top changes, and we may ask you to agree again. You can stop using {APP_NAME} at any time, and you can delete your account yourself from your Profile (see the Privacy Policy for what happens to your details).
             </p>
           ),
         },

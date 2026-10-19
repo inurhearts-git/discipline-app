@@ -42,6 +42,14 @@ export async function middleware(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
   const skipLoggedInRedirect = NO_REDIRECT_IF_LOGGED_IN.some((p) => path.startsWith(p));
 
+  // A deleted account (waiting out its restore window) can only see the
+  // welcome-back choice and the legal pages until it restores or starts fresh.
+  if (user?.app_metadata?.account_deleted === true) {
+    const allowed = ["/welcome-back", "/terms", "/privacy"].some((p) => path.startsWith(p));
+    if (!allowed) return NextResponse.redirect(new URL("/welcome-back", request.url));
+    return response;
+  }
+
   if (!user && !isPublic) {
     const redirectUrl = new URL("/login", request.url);
     return NextResponse.redirect(redirectUrl);

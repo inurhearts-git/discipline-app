@@ -3,7 +3,7 @@
 // agree to again; the version a person accepted is saved on their profile.
 
 export const APP_NAME = "Discipline";
-export const TERMS_VERSION = "2026-10-19";
+export const TERMS_VERSION = "2026-10-19-2";
 export const MIN_AGE = 18;
 
 // Shown on both pages until the project has a public operator and a lawyer

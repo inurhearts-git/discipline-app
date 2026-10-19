@@ -85,7 +85,16 @@ export default function PrivacyPage() {
         },
         {
           heading: "How long we keep it",
-          body: <p style={{ margin: 0 }}>We keep your information while your account is open. When you ask us to delete your account, we delete your personal data, except what we must keep by law.</p>,
+          body: (
+            <>
+              <p style={{ margin: "0 0 10px" }}>We keep your information while your account is open.</p>
+              <p style={{ margin: 0 }}>
+                You can delete your account from your Profile. Your details are then hidden straight away and kept in an encrypted archive for 30 days, so you can come back and pick up where you left off if you sign in again with the same
+                email. If you choose to start a new journey, or the 30 days pass, the archive is erased for good, along with your sign-in details, except anything we must keep by law. Quotes or clips you submitted may stay in the app without
+                your name.
+              </p>
+            </>
+          ),
         },
         {
           heading: "Your rights",

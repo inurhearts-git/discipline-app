@@ -12,6 +12,7 @@ import { STREAK_MILESTONES, STREAK_MIN_MS, nextMilestone } from "@/lib/streak";
 import type { Profile } from "@/lib/database.types";
 import { Stamp } from "@/components/journal/Stamp";
 import { LegalLinks } from "@/components/legal/LegalLinks";
+import { DeleteAccount } from "@/components/profile/DeleteAccount";
 
 interface UsageDay {
   date: string;
@@ -453,6 +454,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           Quotes and sources come from public places and may be wrong. Check the source before changing anything in your life.
         </p>
         <LegalLinks />
+        <DeleteAccount isAdmin={profile.role === "admin"} retentionDays={30} />
       </div>
     </Shell>
   );
