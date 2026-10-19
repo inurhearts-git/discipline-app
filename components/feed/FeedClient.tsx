@@ -44,6 +44,7 @@ interface FeedClientProps {
   tracks: MusicTrack[];
   streakBase: number;
   activeMood: string | null;
+  collection?: { title: string; emoji: string } | null;
   featuredId?: string | null;
   meaningIds?: string[];
 }
@@ -61,7 +62,7 @@ function startTrack(a: HTMLAudioElement, track: MusicTrack) {
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
-export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, featuredId, meaningIds = [] }: FeedClientProps) {
+export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, collection = null, featuredId, meaningIds = [] }: FeedClientProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -293,7 +294,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   useEffect(() => {
     try {
       const q = new URLSearchParams(window.location.search);
-      if (q.has("item") || q.has("tag") || q.has("mood")) return;
+      if (q.has("item") || q.has("tag") || q.has("mood") || q.has("collection")) return;
       const day = new Date().toISOString().slice(0, 10);
       if (localStorage.getItem("mf-mood-day") !== day) setMoodOpen(true);
     } catch {
@@ -687,11 +688,13 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
 
       {/* Always reachable: shows the active mood, or a "Mood" chip when none is set */}
       <button
-        onClick={() => setMoodOpen(true)}
+        onClick={() => (collection ? window.location.assign("/feed") : setMoodOpen(true))}
         data-theme={onVideo ? "dark" : undefined}
         style={{ position: "absolute", top: 58, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: "none", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
       >
-        {activeMood
+        {collection
+          ? `${collection.emoji} ${collection.title} · exit`
+          : activeMood
           ? `${MOODS.find((m) => m.id === activeMood)?.emoji} ${MOODS.find((m) => m.id === activeMood)?.label} · change`
           : "💭 Mood"}
       </button>

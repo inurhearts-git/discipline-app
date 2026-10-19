@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
 import { streakThroughYesterday } from "@/lib/streak";
 import { isMoodId } from "@/lib/moods";
+import { COLLECTION_COLUMNS, type Collection } from "@/lib/collections";
 import { getQuoteOfTheDay } from "@/lib/qotd-server";
 import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
 import type { ContentItem, Profile } from "@/lib/database.types";
@@ -103,7 +104,7 @@ function blendByMood<T>(matching: T[], others: T[]): T[] {
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: { item?: string; tag?: string; mood?: string };
+  searchParams: { item?: string; tag?: string; mood?: string; collection?: string };
 }) {
   const supabase = createClient();
   const {
@@ -143,8 +144,18 @@ export default async function FeedPage({
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
+  // A collection opened from Explore: its topics and moods decide what is shown.
+  let collection: Collection | null = null;
+  if (searchParams.collection && /^[0-9a-f-]{36}$/i.test(searchParams.collection)) {
+    const { data: c } = await supabase.from("collections").select(COLLECTION_COLUMNS).eq("id", searchParams.collection).eq("is_active", true).maybeSingle<Collection>();
+    collection = c ?? null;
+  }
+
   // A topic picked from Explore overrides the saved interests for this visit.
-  if (searchParams.tag) {
+  if (collection) {
+    if (collection.tags.length) itemsQuery = itemsQuery.in("tag", collection.tags);
+    if (collection.moods.length) itemsQuery = itemsQuery.overlaps("moods", collection.moods);
+  } else if (searchParams.tag) {
     itemsQuery = itemsQuery.eq("tag", searchParams.tag);
   } else if (profile.interests?.length) {
     itemsQuery = itemsQuery.in("tag", profile.interests);
@@ -252,6 +263,7 @@ export default async function FeedPage({
       initialMsSpentToday={msSpentToday}
       streakBase={streakBase}
       activeMood={mood}
+      collection={collection ? { title: collection.title, emoji: collection.emoji } : null}
       featuredId={featuredId}
       meaningIds={meaningIds}
       tracks={(trackRows ?? []) as MusicTrack[]}
