@@ -174,7 +174,7 @@ export default async function ExplorePage() {
                         height: 64,
                         margin: "0 auto 8px",
                         borderRadius: "50%",
-                        background: "rgba(201,162,39,0.15)",
+                        background: alpha(COLORS.brass, 15),
                         color: COLORS.brass,
                         display: "flex",
                         alignItems: "center",

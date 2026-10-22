@@ -10,12 +10,16 @@
   --parchment: #f6f1e7;
   --brass: #c9a227;
   --brassDim: #8a701d;
-  --ember: #c2542e;
+  --ember: #d36844;
   --sage: #8ca07a;
   --slate: #9c968a;
   --line: rgba(246, 241, 231, 0.14);
   --fill: rgba(246, 241, 231, 0.05);
-  --placeholder: #6f6a60;
+  --placeholder: #7a756a;
+  /* Text that sits on a brass, ember or danger fill. */
+  --onBrass: #14110f;
+  --onEmber: #14110f;
+  --onDanger: #14110f;
   color-scheme: dark;
 }
 
@@ -25,21 +29,26 @@
   --ink2: #ede6d8;
   --ink3: #e4dccb;
   --parchment: #14110f;
-  --brass: #96781a;
+  /* Contrast checked against --page, --ink and --ink3 (4.5:1 or more for
+     text; placeholder 3.5:1). Fills carry light text in this theme. */
+  --brass: #755e14;
   --brassDim: #c9a227;
-  --ember: #b04824;
-  --sage: #5f7a4c;
-  --slate: #6b655a;
+  --ember: #a24221;
+  --sage: #546b43;
+  --slate: #676156;
   --line: rgba(20, 17, 15, 0.16);
   --fill: rgba(20, 17, 15, 0.04);
-  --placeholder: #9a9487;
-  --danger: #b03a3a;
+  --placeholder: #847d6f;
+  --danger: #ac3939;
+  --onBrass: #f6f1e7;
+  --onEmber: #f6f1e7;
+  --onDanger: #ffffff;
   color-scheme: light;
 }
 
 :root,
 [data-theme="dark"] {
-  --danger: #c24e4e;
+  --danger: #cc6a6a;
 }
 
 * {

@@ -112,7 +112,7 @@ export function DeleteAccount({ isAdmin, retentionDays }: { isAdmin: boolean; re
               <button
                 onClick={confirm}
                 disabled={typed !== "DELETE" || busy}
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: COLORS.danger, color: "#fff", fontSize: 13, fontWeight: 500, cursor: typed === "DELETE" && !busy ? "pointer" : "default", opacity: typed === "DELETE" && !busy ? 1 : 0.4 }}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: COLORS.danger, color: COLORS.onDanger, fontSize: 13, fontWeight: 500, cursor: typed === "DELETE" && !busy ? "pointer" : "default", opacity: typed === "DELETE" && !busy ? 1 : 0.4 }}
               >
                 {busy ? "Deleting…" : "Delete"}
               </button>

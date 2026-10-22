@@ -20,9 +20,13 @@ export function ContentCard({ item, width = 150 }: { item: CardItem; width?: num
       ? `linear-gradient(180deg, rgba(20,17,15,0.1) 0%, rgba(20,17,15,0.9) 100%), url(https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg) center/cover no-repeat`
       : `radial-gradient(circle at 30% 20%, ${COLORS.ink2} 0%, ${COLORS.ink} 80%)`;
 
+  const isVideo = item.type === "video" && !!item.video_id;
   return (
     <Link
       href={`/feed?item=${item.id}`}
+      // Video cards sit on a dark photo overlay in both themes, so their text
+      // uses the dark palette (globals.css re-applies it under data-theme).
+      data-theme={isVideo ? "dark" : undefined}
       style={{
         width,
         height: 210,
