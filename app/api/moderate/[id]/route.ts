@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMoodId } from "@/lib/moods";
 import { draftAndStore, meaningConfigured } from "@/lib/meaning";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // Leaves time for the Claude draft made on approval.
 export const maxDuration = 30;
@@ -30,6 +31,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "admin") {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLES, roleErrorMessage, type Role } from "@/lib/admins";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // Admin only. Changing roles goes through the server so the checks below
 // always run; the database guard (migration 0015) also refuses to remove the
@@ -12,7 +13,7 @@ async function requireAdmin() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
-  if (user.app_metadata?.account_deleted === true) return { error: NextResponse.json({ error: "This account was deleted." }, { status: 403 }) };
+  if (isDeletedAccount(user)) return { error: deletedAccountResponse() };
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "admin") return { error: NextResponse.json({ error: "Admin only" }, { status: 403 }) };
   return { userId: user.id };

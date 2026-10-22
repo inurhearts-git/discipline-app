@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdult } from "@/lib/constants";
 import { isMoodId } from "@/lib/moods";
 import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // GET /api/content — approved feed items, RLS already restricts this to
 // status='approved' (plus your own submissions). Blueprint §6: mature
@@ -16,6 +17,7 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data: profile } = await supabase.from("profiles").select("birthdate").eq("id", user.id).single();
 
@@ -59,6 +61,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role === "viewer") {

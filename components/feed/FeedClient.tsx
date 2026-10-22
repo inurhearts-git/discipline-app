@@ -82,7 +82,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const viewedRef = useRef<Set<string>>(new Set());
   const lastTapRef = useRef<{ id: string; t: number } | null>(null);
 
-  // Usage heartbeat (unchanged)
+  // Usage heartbeat
   useEffect(() => {
     const tick = setInterval(async () => {
       try {
@@ -91,6 +91,12 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ deltaMs: HEARTBEAT_INTERVAL_MS }),
         });
+        if (res.status === 403) {
+          // The account was deleted in another tab or device: show the restore choice.
+          const d = await res.json().catch(() => ({}));
+          if (d.code === "account_deleted") window.location.assign("/welcome-back");
+          return;
+        }
         if (!res.ok) return;
         const data = await res.json();
         setMsSpentToday(data.msSpentToday);

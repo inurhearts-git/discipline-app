@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 const REASONS = ["wrong_source", "inaccurate", "inappropriate", "broken_video", "other"] as const;
 const DAILY_LIMIT = 20; // reports one person can send in 24 hours
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const body = await request.json().catch(() => null);
   const contentId = typeof body?.content_id === "string" ? body.content_id : "";

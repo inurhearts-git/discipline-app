@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runRefill } from "@/lib/auto-refill";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 export const maxDuration = 60;
 
@@ -12,6 +13,7 @@ export async function POST() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "admin") return NextResponse.json({ error: "Admin only" }, { status: 403 });
 

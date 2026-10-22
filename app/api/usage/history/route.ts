@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // GET /api/usage/history?days=7
 // Returns the user's own usage_sessions rows for the last N days, with
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { searchParams } = new URL(request.url);
   const days = Math.min(30, Math.max(1, Number(searchParams.get("days")) || 7));

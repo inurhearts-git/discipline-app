@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkBody, cleanBody, type JournalEntry } from "@/lib/journal";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/journal  { body: string }
 // Creates a journal entry for the current user, stamped with the current date
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const payload = await request.json().catch(() => ({}));
   const body = cleanBody(typeof payload.body === "string" ? payload.body : "");

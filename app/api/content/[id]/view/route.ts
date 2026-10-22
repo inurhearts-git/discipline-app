@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/content/[id]/view
 // Records a view for the current user on this content item, deduped
@@ -13,6 +14,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { error } = await supabase.rpc("record_view", { p_content_id: params.id });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

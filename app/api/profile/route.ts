@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 export async function GET() {
   const supabase = createClient();
@@ -7,6 +8,7 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -23,6 +25,7 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const body = await request.json().catch(() => ({}));
   const allowed = ["display_name", "bio", "avatar_color", "interests", "birthdate"] as const;
