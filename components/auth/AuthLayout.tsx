@@ -22,7 +22,7 @@ export function AuthLayout({ title, subtitle, children, compact = false, quote =
   const stageH = compact ? 250 : 350;
   return (
     <Shell>
-      <style>{AUTH_CSS}</style>
+      <style dangerouslySetInnerHTML={{ __html: AUTH_CSS }} />
       <div style={{ minHeight: 720, display: "flex", flexDirection: "column" }}>
         {/* Stage */}
         <div className="au-stage" style={{ position: "relative", minHeight: stageH, padding: `26px 28px ${HORIZON + 66}px`, overflow: "hidden", flexShrink: 0 }}>
@@ -105,14 +105,14 @@ const AUTH_CSS = `
 
 .au-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 14px 16px; border-radius: 12px; border: none; background: var(--brass); color: #14110F;
+  padding: 14px 16px; border-radius: 12px; border: none; background: var(--brass); color: var(--onBrass);
   font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
   transition: transform 120ms ease, opacity 160ms ease, filter 160ms ease;
 }
 .au-btn:hover:not(:disabled) { filter: brightness(1.06); }
 .au-btn:active:not(:disabled) { transform: scale(0.98); }
 .au-btn:disabled { opacity: 0.45; cursor: default; }
-.au-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(20,17,15,.25); border-top-color: #14110F; animation: mf-spin-kf 0.8s linear infinite; }
+.au-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--onBrass) 25%, transparent); border-top-color: var(--onBrass); animation: mf-spin-kf 0.8s linear infinite; }
 
 .au-link { color: var(--brass); text-decoration: none; border-radius: 4px; }
 .au-link:hover { text-decoration: underline; text-underline-offset: 3px; }

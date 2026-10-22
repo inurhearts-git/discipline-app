@@ -370,10 +370,10 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
 
   return (
     <Shell>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes mf-pop { 0% { transform: scale(0.4); opacity: 0; } 30% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
         .mf-pop { animation: mf-pop 0.7s ease-out forwards; }
-      `}</style>
+      ` }} />
 
       {/* Slim transparent header */}
       <div
@@ -756,7 +756,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
             padding: 32,
           }}
         >
-          <style>{`@keyframes mf-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}@media (prefers-reduced-motion:no-preference){.mf-pop{animation:mf-pop .5s cubic-bezier(.2,.9,.3,1.2) both}}`}</style>
+          <style dangerouslySetInnerHTML={{ __html: `@keyframes mf-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}@media (prefers-reduced-motion:no-preference){.mf-pop{animation:mf-pop .5s cubic-bezier(.2,.9,.3,1.2) both}}` }} />
           <div
             className="mf-pop"
             style={{ width: 76, height: 76, borderRadius: "50%", background: alpha(COLORS.ember, 14), display: "flex", alignItems: "center", justifyContent: "center" }}

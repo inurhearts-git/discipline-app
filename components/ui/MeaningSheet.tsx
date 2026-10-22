@@ -75,13 +75,13 @@ export function MeaningSheet({ contentId, onClose }: { contentId: string; onClos
       }}
       style={{ position: "absolute", inset: 0, zIndex: 60, background: alpha(COLORS.ink, 72), display: "flex", alignItems: "center", justifyContent: "center", padding: 22 }}
     >
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes mf-meaning-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
         .mf-meaning { animation: mf-meaning-in 220ms ease-out both; }
         .mf-meaning-close { outline: none; }
         .mf-meaning-close:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
         @media (prefers-reduced-motion: reduce) { .mf-meaning { animation: none; } }
-      `}</style>
+      ` }} />
       <div
         className="mf-meaning"
         onClick={(e) => e.stopPropagation()}

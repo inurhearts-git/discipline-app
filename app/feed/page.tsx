@@ -266,7 +266,14 @@ export default async function FeedPage({
       collection={collection ? { title: collection.title, emoji: collection.emoji } : null}
       featuredId={featuredId}
       meaningIds={meaningIds}
-      tracks={(trackRows ?? []) as MusicTrack[]}
+      tracks={((trackRows ?? []) as MusicTrack[]).map(cleanTrackName)}
     />
   );
+}
+
+// Never show placeholder names from the seed data ("REPLACE: ...") in the
+// player; a neutral label shows until real titles are set in music_tracks.
+const isPlaceholder = (v: string | null | undefined) => !v || /^\s*REPLACE\b/i.test(v);
+function cleanTrackName(t: MusicTrack): MusicTrack {
+  return { ...t, title: isPlaceholder(t.title) ? "Background music" : t.title, artist: isPlaceholder(t.artist) ? null : t.artist };
 }
