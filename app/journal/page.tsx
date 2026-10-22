@@ -4,6 +4,7 @@ import { ArrowLeft, NotebookPen, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Shell } from "@/components/ui/Shell";
 import { Stamp } from "@/components/journal/Stamp";
+import { ExportJournal } from "@/components/journal/ExportJournal";
 import { COLORS } from "@/lib/constants";
 import { countWords, wasEdited, type JournalEntry } from "@/lib/journal";
 
@@ -46,6 +47,12 @@ export default async function JournalPage() {
             <Plus size={16} /> New entry
           </Link>
         </div>
+
+        {!notSetUp && entries.length > 0 && (
+          <div style={{ marginTop: -8, marginBottom: 14 }}>
+            <ExportJournal />
+          </div>
+        )}
 
         {notSetUp ? (
           <p style={{ fontSize: 13, color: COLORS.slate, textAlign: "center", padding: "60px 12px" }}>The journal isn&apos;t set up yet (run migration 0008).</p>

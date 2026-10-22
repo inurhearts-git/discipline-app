@@ -43,7 +43,7 @@ export default function PrivacyPage() {
           body: (
             <p style={{ margin: 0 }}>
               These are private to your account in the app. They are stored in our database, so the person who runs the service has technical access to it, and we may be required to disclose data by law. We don&apos;t read journals as part
-              of running the app. Please don&apos;t write anything in the journal that you would not want stored.
+              of running the app. Please don&apos;t write anything in the journal that you would not want stored. You can download your own journal at any time from the Journal page (Export); the file contains only your entries, and once downloaded it is yours to keep safe.
             </p>
           ),
         },
