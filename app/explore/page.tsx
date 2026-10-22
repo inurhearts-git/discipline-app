@@ -100,7 +100,8 @@ export default async function ExplorePage() {
                       padding: 14,
                       borderRadius: 14,
                       border: `1px solid ${COLORS.line}`,
-                      background: `linear-gradient(160deg, ${alpha(COLORS.brass, 12)} 0%, transparent 70%)`,
+                      // Drawn once over the whole card; a repeating tile showed as an inner box.
+                      background: `linear-gradient(160deg, ${alpha(COLORS.brass, 12)} 0%, transparent 70%) no-repeat border-box`,
                       textDecoration: "none",
                       color: COLORS.parchment,
                     }}
