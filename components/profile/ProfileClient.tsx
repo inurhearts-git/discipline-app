@@ -26,7 +26,7 @@ interface ProfileClientProps {
   streakBase: number; // consecutive qualifying days ending yesterday
   bestPast: number; // longest run before today
   pendingCount: number;
-  adminAlert?: { lone: boolean; overdue: number } | null;
+  adminAlert?: { lone: boolean; overdue: number; jobProblems: string[] } | null;
   savedCount: number;
   reflectionCount: number;
   journalCount: number;
@@ -440,6 +440,11 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
                   {adminAlert.overdue} deleted account{adminAlert.overdue === 1 ? " is" : "s are"} overdue for erasure.
                 </div>
               )}
+              {adminAlert.jobProblems.map((p) => (
+                <div key={p} style={{ marginTop: 4 }}>
+                  {p}
+                </div>
+              ))}
               <div style={{ color: COLORS.brass, marginTop: 4 }}>Open Admins →</div>
             </div>
           </Link>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { Shell } from "@/components/ui/Shell";
 import { COLORS, alpha } from "@/lib/constants";
 import type { AdminPerson, ErasureStatus } from "@/lib/admins";
+import type { JobHealth } from "@/lib/cron-monitor";
 
 interface Found {
   id: string;
@@ -19,7 +20,26 @@ interface Found {
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function AdminsClient({ admins, meId, erasure }: { admins: AdminPerson[]; meId: string; erasure: ErasureStatus | null }) {
+const ago = (iso: string) => {
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
+  return `${Math.round(mins / 60 / 24)} d ago`;
+};
+
+export function AdminsClient({
+  admins,
+  meId,
+  erasure,
+  jobs,
+  emailAlerts,
+}: {
+  admins: AdminPerson[];
+  meId: string;
+  erasure: ErasureStatus | null;
+  jobs: JobHealth[] | null;
+  emailAlerts: boolean;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [found, setFound] = useState<Found | null>(null);
@@ -29,6 +49,11 @@ export function AdminsClient({ admins, meId, erasure }: { admins: AdminPerson[];
   const [notice, setNotice] = useState("");
   const [purging, setPurging] = useState(false);
   const [purgeMsg, setPurgeMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  // Relative times only after mount, so server and browser render the same.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const lone = admins.length <= 1;
   const small: CSSProperties = { fontSize: 12, color: COLORS.slate, margin: 0, lineHeight: 1.6 };
@@ -89,6 +114,29 @@ export function AdminsClient({ admins, meId, erasure }: { admins: AdminPerson[];
       setPurgeMsg({ text: "The run failed. Check your connection.", bad: true });
     } finally {
       setPurging(false);
+    }
+  }
+
+  async function testAlert() {
+    setTesting(true);
+    setTestMsg(null);
+    try {
+      const res = await fetch("/api/admin/alert-test", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTestMsg({ text: d.error || "The test failed to run.", bad: true });
+        return;
+      }
+      const parts: string[] = [];
+      parts.push(d.recorded ? "Recorded as a failed run." : "Not recorded: run migration 0016 in Supabase.");
+      if (!d.alert || d.alert.reason === "not configured") parts.push("No email sent: email alerts are off.");
+      else if (d.alert.ok) parts.push("Alert email sent. Check your inbox (and spam).");
+      else parts.push(`Email failed: ${d.alert.reason}`);
+      setTestMsg({ text: parts.join(" "), bad: !d.recorded || !d.alert?.ok });
+    } catch {
+      setTestMsg({ text: "The test failed to run. Check your connection.", bad: true });
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -222,6 +270,37 @@ export function AdminsClient({ admins, meId, erasure }: { admins: AdminPerson[];
           </button>
           <p style={{ ...small, marginTop: 6 }}>It also runs by itself every day at 03:00 UTC. Only accounts past their window are erased.</p>
           {purgeMsg && <p style={{ fontSize: 12, margin: "8px 0 0", color: purgeMsg.bad ? COLORS.danger : COLORS.sage }}>{purgeMsg.text}</p>}
+        </div>
+
+        <div style={card}>
+          <p style={h2}>Daily jobs</p>
+          {jobs === null ? (
+            <p style={small}>Job history isn&apos;t set up yet (run migration 0016 in Supabase).</p>
+          ) : (
+            jobs.map((j) => (
+              <div key={j.id} style={{ padding: "8px 0", borderTop: `1px solid ${COLORS.line}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, color: COLORS.parchment }}>
+                  <span>{j.label}</span>
+                  <span style={{ fontSize: 12, color: j.problem ? COLORS.danger : j.lastRunAt ? COLORS.sage : COLORS.slate }}>
+                    {!j.lastRunAt ? "No run yet" : j.lastOk === false ? "Failed" : j.stale ? "Not running" : "OK"}
+                    {j.lastRunAt && mounted ? ` · ${ago(j.lastRunAt)}` : ""}
+                  </span>
+                </div>
+                {j.lastSummary && <p style={{ ...small, marginTop: 2 }}>{j.lastSummary}</p>}
+                {j.stale && j.lastOk !== false && <p style={{ ...small, color: COLORS.danger, marginTop: 2 }}>No run in over a day. Check Crons in your Vercel project.</p>}
+              </div>
+            ))
+          )}
+          <p style={{ ...small, marginTop: 8 }}>
+            {emailAlerts
+              ? "Email alerts are on: a failed job emails the alert address."
+              : "Email alerts are off. Failures still show here and on Profile. To get emails, add RESEND_API_KEY and ALERT_EMAIL in Vercel, then redeploy."}
+          </p>
+          <button type="button" onClick={testAlert} disabled={testing} style={{ ...btn(false, testing), marginTop: 10 }}>
+            {testing ? "Sending…" : "Send test alert"}
+          </button>
+          <p style={{ ...small, marginTop: 6 }}>Runs a job that fails on purpose, so you can see the alert arrive.</p>
+          {testMsg && <p style={{ fontSize: 12, margin: "8px 0 0", color: testMsg.bad ? COLORS.danger : COLORS.sage }}>{testMsg.text}</p>}
         </div>
       </div>
     </Shell>
