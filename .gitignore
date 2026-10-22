@@ -5,3 +5,8 @@ node_modules
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Database backups: never commit (they hold private journals)
+*.tar.enc
+*.dump
+discipline-backups/

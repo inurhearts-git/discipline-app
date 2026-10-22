@@ -19,7 +19,7 @@ export function Shell({ children }: { children: ReactNode }) {
         boxShadow: `0 0 0 1px ${COLORS.line}`,
       }}
     >
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;1,400;1,500&family=Space+Grotesk:wght@400;500;600&display=swap');
         .mf-scroll::-webkit-scrollbar { display: none; }
         .mf-scroll { scrollbar-width: none; }
@@ -34,7 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
         .mf-label { font-size: 11px; letter-spacing: 1px; color: var(--slate); margin: 0 0 6px; display:block; text-transform: uppercase; }
         .mf-spin { animation: mf-spin-kf 1s linear infinite; }
         @keyframes mf-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
+      ` }} />
       {/* Wrapper keeps every page's absolute-positioned elements inside the content area, above the tab bar */}
       <div style={{ position: "relative", minHeight: 720 }}>{children}</div>
       <BottomNav />

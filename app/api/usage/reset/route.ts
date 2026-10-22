@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayStr } from "@/lib/constants";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/usage/reset — zeroes today's usage for the current user.
 // This is a development/testing convenience only (so you can exercise the
@@ -13,6 +14,7 @@ export async function POST() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const admin = createAdminClient();
   const { error } = await admin

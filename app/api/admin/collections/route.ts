@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCollectionInput } from "@/lib/collections";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 async function requireAdmin() {
   const supabase = createClient();
@@ -9,6 +10,7 @@ async function requireAdmin() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "admin") return NextResponse.json({ error: "Admin only" }, { status: 403 });
   return null;

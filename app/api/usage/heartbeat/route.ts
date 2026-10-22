@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, MAX_HEARTBEAT_DELTA_MS, todayStr } from "@/lib/constants";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/usage/heartbeat  { deltaMs: number }
 //
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const body = await request.json().catch(() => ({}));
   const rawDelta = typeof body.deltaMs === "number" ? body.deltaMs : 0;
@@ -61,6 +63,7 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const admin = createAdminClient();
   const date = todayStr();

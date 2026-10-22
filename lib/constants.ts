@@ -23,9 +23,11 @@ export const COLORS = {
   slate: "var(--slate)",
   line: "var(--line)",
   danger: "var(--danger)",
-  // Fixed in both themes: text that sits ON a brass or ember fill.
-  onBrass: "#14110F",
-  onEmber: "#F6F1E7",
+  // Text that sits ON a brass, ember or danger fill (dark text in the dark
+  // theme, light text in the light theme, so both pass contrast).
+  onBrass: "var(--onBrass)",
+  onEmber: "var(--onEmber)",
+  onDanger: "var(--onDanger)",
 } as const;
 
 // Transparent version of any colour (hex or var()). pct is 0-100.

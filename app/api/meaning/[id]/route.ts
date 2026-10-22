@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // GET /api/meaning/[id] -> { text } for an approved meaning (RLS hides drafts).
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
@@ -8,6 +9,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data } = await supabase
     .from("content_meanings")

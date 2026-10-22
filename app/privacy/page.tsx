@@ -93,6 +93,9 @@ export default function PrivacyPage() {
                 email. If you choose to start a new journey, or the 30 days pass, the archive is erased for good, along with your sign-in details, except anything we must keep by law. Quotes or clips you submitted may stay in the app without
                 your name.
               </p>
+              <p style={{ margin: "10px 0 0" }}>
+                To protect against data loss we keep encrypted backups of the database for up to 12 months. Backups are only used to restore the service. Deleted information leaves the backups as they are replaced, within 12 months.
+              </p>
             </>
           ),
         },

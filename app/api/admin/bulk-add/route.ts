@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMoodId } from "@/lib/moods";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 const MAX_BATCH = 50;
 const MAX_CAPTION = 300;
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (!profile || profile.role !== "admin") {

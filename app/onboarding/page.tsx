@@ -6,7 +6,7 @@ import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { Btn } from "@/components/ui/Btn";
-import { CATEGORIES, COLORS, tagColor } from "@/lib/constants";
+import { CATEGORIES, COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentTag } from "@/lib/database.types";
 
 export default function OnboardingPage() {
@@ -73,7 +73,7 @@ export default function OnboardingPage() {
                   padding: "16px 16px",
                   borderRadius: 10,
                   border: `1px solid ${active ? tagColor(c.key) : COLORS.line}`,
-                  background: active ? "rgba(201,162,39,0.06)" : "transparent",
+                  background: active ? alpha(COLORS.brass, 8) : "transparent",
                   cursor: "pointer",
                   display: "flex",
                   justifyContent: "space-between",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus, Flag, RefreshCw, Layers } from "lucide-react";
+import { LogOut, ShieldCheck, PenLine, Clock, Settings2, Pencil, Check, X, Palette, Flame, Bookmark, BookOpen, NotebookPen, Plus, Flag, RefreshCw, Layers, Users, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Shell } from "@/components/ui/Shell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -26,6 +26,7 @@ interface ProfileClientProps {
   streakBase: number; // consecutive qualifying days ending yesterday
   bestPast: number; // longest run before today
   pendingCount: number;
+  adminAlert?: { lone: boolean; overdue: number; jobProblems: string[] } | null;
   savedCount: number;
   reflectionCount: number;
   journalCount: number;
@@ -42,7 +43,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, savedCount, reflectionCount, journalCount, lastJournalAt }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -425,6 +426,30 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           </Link>
         )}
 
+        {profile.role === "admin" && adminAlert && (
+          <Link
+            href="/moderate/admins"
+            role="alert"
+            style={{ display: "flex", gap: 10, alignItems: "flex-start", border: `1px solid ${alpha(COLORS.ember, 55)}`, background: alpha(COLORS.ember, 10), borderRadius: 10, padding: 12, marginBottom: 12, textDecoration: "none" }}
+          >
+            <AlertTriangle size={16} color={COLORS.ember} style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ fontSize: 12, lineHeight: 1.55, color: COLORS.parchment }}>
+              {adminAlert.lone && <div>You are the only admin. Add a second admin so reviews don&apos;t depend on one person.</div>}
+              {adminAlert.overdue > 0 && (
+                <div style={{ marginTop: adminAlert.lone ? 4 : 0 }}>
+                  {adminAlert.overdue} deleted account{adminAlert.overdue === 1 ? " is" : "s are"} overdue for erasure.
+                </div>
+              )}
+              {adminAlert.jobProblems.map((p) => (
+                <div key={p} style={{ marginTop: 4 }}>
+                  {p}
+                </div>
+              ))}
+              <div style={{ color: COLORS.brass, marginTop: 4 }}>Open Admins →</div>
+            </div>
+          </Link>
+        )}
+
         {profile.role === "admin" && (
           <Link
             href="/moderate"
@@ -467,6 +492,17 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           >
             <Layers size={16} color={COLORS.parchment} />
             <div style={{ color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Collections</div>
+          </Link>
+        )}
+
+        {profile.role === "admin" && (
+          <Link
+            href="/moderate/admins"
+            style={{ textAlign: "left", border: `1px solid ${COLORS.line}`, borderRadius: 10, padding: 14, marginTop: 12, background: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
+          >
+            <Users size={16} color={COLORS.parchment} />
+            <div style={{ flex: 1, color: COLORS.parchment, fontSize: 13, fontWeight: 500 }}>Admins</div>
+            {adminAlert && <AlertTriangle size={14} color={COLORS.ember} aria-label="Needs attention" />}
           </Link>
         )}
 

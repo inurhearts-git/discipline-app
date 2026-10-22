@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { erasureStatus, listAdmins } from "@/lib/admins";
+import { jobHealth } from "@/lib/cron-monitor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayStr } from "@/lib/constants";
 import { bestStreak, streakThroughYesterday } from "@/lib/streak";
@@ -75,7 +77,16 @@ export default async function ProfilePage() {
     .limit(1);
 
   let pendingCount = 0;
+  let adminAlert: { lone: boolean; overdue: number; jobProblems: string[] } | null = null;
   if (profile.role === "admin") {
+    // Lone-admin and overdue-erasure warnings (backlog 3a). Errors skip the warning.
+    const svc = createAdminClient();
+    const [admins, erasure, jobs] = await Promise.all([listAdmins(svc).catch(() => null), erasureStatus(svc), jobHealth(svc)]);
+    const lone = admins !== null && admins.length <= 1;
+    const overdue = erasure?.overdue ?? 0;
+    const jobProblems = (jobs ?? []).map((j) => j.problem).filter((p): p is string => !!p);
+    if (lone || overdue > 0 || jobProblems.length) adminAlert = { lone, overdue, jobProblems };
+
     const { count } = await supabase
       .from("content_items")
       .select("id", { count: "exact", head: true })
@@ -91,6 +102,7 @@ export default async function ProfilePage() {
       streakBase={streakBase}
       bestPast={bestPast}
       pendingCount={pendingCount}
+      adminAlert={adminAlert}
       savedCount={savedCount ?? 0}
       reflectionCount={reflectionCount ?? 0}
       journalCount={journalCount ?? 0}

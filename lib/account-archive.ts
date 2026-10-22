@@ -139,16 +139,37 @@ export async function restoreSnapshot(admin: SupabaseClient, userId: string, sna
 
 // After the window: remove the archive and the sign-in record for good. Quotes
 // or clips the person submitted stay in the app, handed to an admin account,
-// because content_items needs a submitter.
-export async function purgeAccount(admin: SupabaseClient, userId: string): Promise<void> {
-  const { data: admins } = await admin.from("profiles").select("id").eq("role", "admin").neq("id", userId).order("created_at", { ascending: true }).limit(1);
-  const heir = admins?.[0]?.id as string | undefined;
-  if (!heir) throw new Error("no admin to inherit submissions");
-  await admin.from("content_items").update({ submitted_by: heir }).eq("submitted_by", userId);
-  await admin.from("content_items").update({ reviewed_by: heir }).eq("reviewed_by", userId);
-  await admin.from("content_meanings").update({ approved_by: heir }).eq("approved_by", userId);
-  await admin.from("account_archives").delete().eq("user_id", userId);
-  const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) throw new Error(`delete user: ${error.message}`);
-}
+// because content_items needs a submitter. Every step checks for errors, so a
+// failure stops before the sign-in record is deleted and says why.
+export class PurgeError extends Error {}
 
+export async function purgeAccount(admin: SupabaseClient, userId: string): Promise<void> {
+  const { data: admins, error: adminError } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin")
+    .is("account_deleted_at", null)
+    .neq("id", userId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (adminError) throw new PurgeError(`couldn't look up admins: ${adminError.message}`);
+  const heir = admins?.[0]?.id as string | undefined;
+  if (!heir) throw new PurgeError("no other admin to take over their submissions");
+
+  for (const [table, column] of [
+    ["content_items", "submitted_by"],
+    ["content_items", "reviewed_by"],
+    ["content_meanings", "approved_by"],
+  ] as const) {
+    const { error } = await admin.from(table).update({ [column]: heir }).eq(column, userId);
+    // content_meanings may not exist before migration 0009.
+    if (error && !(table === "content_meanings" && (error.code === "42P01" || error.code === "PGRST205"))) throw new PurgeError(`hand over ${table}.${column}: ${error.message}`);
+  }
+  // Deleting the sign-in record also erases the archive (on delete cascade,
+  // migration 0012). Doing it first means a failure never leaves a flagged
+  // account with no archive to restore from.
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) throw new PurgeError(`delete sign-in record: ${error.message}`);
+  const { error: archiveError } = await admin.from("account_archives").delete().eq("user_id", userId);
+  if (archiveError) throw new PurgeError(`erase archive: ${archiveError.message}`);
+}

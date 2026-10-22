@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { todayStr } from "@/lib/constants";
 import { REFLECTION_MAX } from "@/lib/reflection";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // PUT /api/reflection  { text: string, contentId?: string | null }
 // Saves (or replaces) today's one-line reflection for the current user.
@@ -13,6 +14,7 @@ export async function PUT(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const body = await request.json().catch(() => ({}));
   const text = typeof body.text === "string" ? body.text.replace(/\s+/g, " ").trim() : "";
@@ -45,6 +47,7 @@ export async function DELETE() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { error } = await supabase.from("reflections").delete().eq("user_id", user.id).eq("date", todayStr());
   if (error) return NextResponse.json({ error: "Couldn't delete. Try again." }, { status: 500 });

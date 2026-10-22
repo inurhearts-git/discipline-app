@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 import { H, QuoteCard, W, type CardItem } from "@/lib/quote-card";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 export const runtime = "edge";
 
@@ -14,6 +15,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return new Response("Not authenticated", { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const { data: item } = await supabase
     .from("content_items")

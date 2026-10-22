@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { JournalEntry } from "@/lib/journal";
 import { EXPORT_FORMATS, exportFileName, parseDay, renderExport, safeTimeZone, selectEntries, type ExportFormat } from "@/lib/journal-export";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  if (user.app_metadata?.account_deleted === true) return NextResponse.json({ error: "This account was deleted." }, { status: 403 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const url = new URL(request.url);
   const format = (url.searchParams.get("format") ?? "txt") as ExportFormat;

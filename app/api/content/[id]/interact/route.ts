@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/content/[id]/interact  { kind: "liked" | "saved" }
 // Toggles the given flag for the current user on this content item.
@@ -16,6 +17,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const body = await request.json().catch(() => ({}));
   const kind = body.kind === "saved" ? "saved" : "liked";

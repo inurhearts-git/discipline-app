@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isDeletedAccount } from "@/lib/api-auth";
 
 // Plain-language meanings for quotes and scripture (migration 0009).
 // Server-only. Env: ANTHROPIC_API_KEY (required), MEANING_MODEL (optional).
@@ -77,7 +78,7 @@ export async function requireAdmin(supabase: SupabaseClient): Promise<string | n
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user || isDeletedAccount(user)) return null;
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
   return profile?.role === "admin" ? user.id : null;
 }
