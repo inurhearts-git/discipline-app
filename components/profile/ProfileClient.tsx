@@ -14,7 +14,8 @@ import { Stamp } from "@/components/journal/Stamp";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
 import { NoticeSettingsCard } from "@/components/profile/NoticeSettings";
-import type { NoticeSettings } from "@/lib/notifications";
+import type { NoticeSettings } from "@/lib/notice-settings";
+import { disablePush } from "@/lib/push-client";
 
 interface UsageDay {
   date: string;
@@ -34,6 +35,7 @@ interface ProfileClientProps {
   journalCount: number;
   lastJournalAt: string | null;
   noticeSettings: NoticeSettings | null;
+  pushState: "ready" | "no-keys" | "no-migration";
 }
 
 // Literal hex on purpose: these values are saved to profiles.avatar_color,
@@ -46,7 +48,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt, noticeSettings }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt, noticeSettings, pushState }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -65,6 +67,8 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
   const avatarBg = alpha(avatarFg, 15);
 
   const handleLogout = async () => {
+    // Stop this device's push notifications so the next person on it doesn't get them.
+    await Promise.race([disablePush(), new Promise((r) => setTimeout(r, 1500))]).catch(() => undefined);
     await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
@@ -410,7 +414,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           <ThemeToggle />
         </div>
 
-        <NoticeSettingsCard settings={noticeSettings} role={profile.role} />
+        <NoticeSettingsCard settings={noticeSettings} role={profile.role} pushState={pushState} />
 
         <Link
           href="/onboarding"

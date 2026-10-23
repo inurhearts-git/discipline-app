@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const tz = url.searchParams.get("tz");
-  if (tz) await saveTimeZone(supabase, user.id, tz);
+  await saveSeen(supabase, user.id, tz);
 
   const unreadQ = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null);
   if (unreadQ.error) {
@@ -55,13 +55,25 @@ export async function GET(request: Request) {
   return NextResponse.json({ unread, items: (data ?? []) as NoticeRow[], ready: true }, { headers: NO_STORE });
 }
 
-// Writes the time zone only when it differs from what's stored.
-async function saveTimeZone(supabase: ReturnType<typeof createClient>, userId: string, raw: string): Promise<void> {
-  const tz = raw.slice(0, 64);
-  if (safeZone(tz) !== tz) return; // not a real zone name
-  const { data, error } = await supabase.from("notification_settings").select("time_zone").eq("user_id", userId).maybeSingle();
-  if (error || data?.time_zone === tz) return;
+// Remembers the device's time zone and when the person last had the app open
+// (for the "we miss you" nudge, migration 0018). Writes only when the zone
+// changed or the last visit is over an hour old.
+async function saveSeen(supabase: ReturnType<typeof createClient>, userId: string, raw: string | null): Promise<void> {
+  const tz = raw ? raw.slice(0, 64) : null;
+  const zone = tz && safeZone(tz) === tz ? tz : null;
+  let { data, error } = await supabase.from("notification_settings").select("time_zone, last_seen_at").eq("user_id", userId).maybeSingle();
+  const before0018 = !!error;
+  if (before0018) {
+    // last_seen_at doesn't exist yet: keep saving the zone only.
+    ({ data, error } = await supabase.from("notification_settings").select("time_zone").eq("user_id", userId).maybeSingle());
+    if (error) return;
+  }
+  const row = (data ?? {}) as { time_zone?: string | null; last_seen_at?: string | null };
+  const patch: Record<string, string> = {};
+  if (zone && row.time_zone !== zone) patch.time_zone = zone;
+  if (!before0018 && (!row.last_seen_at || Date.now() - Date.parse(row.last_seen_at) > 3600e3)) patch.last_seen_at = new Date().toISOString();
+  if (!Object.keys(patch).length) return;
   await createAdminClient()
     .from("notification_settings")
-    .upsert({ user_id: userId, time_zone: tz, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    .upsert({ user_id: userId, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
 }

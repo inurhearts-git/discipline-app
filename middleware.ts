@@ -67,6 +67,7 @@ export const config = {
     // Run on everything except static assets and API routes (API routes
     // check auth themselves so they can return JSON errors instead of
     // redirects).
-    "/((?!_next/static|_next/image|favicon.ico|api).*)",
+    // The service worker, app manifest and icons must load signed out too.
+    "/((?!_next/static|_next/image|favicon.ico|api|sw\\.js|manifest\\.webmanifest|icons/).*)",
   ],
 };

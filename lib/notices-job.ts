@@ -2,6 +2,7 @@
 // and does three things:
 //   1. "Streak at risk": people who counted yesterday but not yet today get
 //      one reminder about 3 hours before their own midnight.
+//   1b. "We miss you": a push nudge after 2 whole days away, and after 10.
 //   2. Once a day (from 06:00 UTC, after erasure and auto refill have run):
 //      tells admins about submissions waiting, overdue erasures and jobs that
 //      stopped running.
@@ -119,6 +120,89 @@ export async function sendStreakAtRisk(admin: SupabaseClient, now = new Date()):
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// "We miss you": a nudge to people who haven't opened the app for 2 whole
+// days, and once more after 10. Push only (an in-app notice can't reach
+// someone who isn't opening the app), so it goes to people who turned phone
+// notifications on. Sent between 18:00 and 20:00 their time, once per absence
+// per stage. Needs migration 0018 (last_seen_at, comeback switch).
+// ---------------------------------------------------------------------------
+const COMEBACK_FROM = 18;
+const COMEBACK_TO = 20;
+export const COMEBACK_STAGES = [
+  { stage: 1, daysAway: 2, title: "We miss you", body: "It's been a few days. Spend a few minutes on the app today and start a new streak." },
+  { stage: 2, daysAway: 10, title: "Still here when you're ready", body: "Today's quote is waiting for you. A few minutes is all it takes to start again." },
+] as const;
+
+// Whole days between their last visit and today, not counting either day.
+export function daysAway(lastSeen: Date, now: Date, tz: string): number {
+  const a = Date.parse(`${dayIn(tz, lastSeen)}T00:00:00Z`);
+  const b = Date.parse(`${dayIn(tz, now)}T00:00:00Z`);
+  return Math.round((b - a) / 864e5) - 1;
+}
+
+export function comebackStage(lastSeen: Date, now: Date, tz: string): (typeof COMEBACK_STAGES)[number] | null {
+  const away = daysAway(lastSeen, now, tz);
+  return [...COMEBACK_STAGES].reverse().find((s) => away >= s.daysAway) ?? null;
+}
+
+export interface ComebackResult {
+  away: number; // with push on and away 2+ days
+  due: number; // of those, in their 18:00-20:00 window
+  sent: number;
+}
+
+interface SeenRow {
+  user_id: string;
+  time_zone: string | null;
+  last_seen_at: string;
+  comeback: boolean;
+}
+
+export async function sendComeback(admin: SupabaseClient, now = new Date()): Promise<ComebackResult | null> {
+  const result: ComebackResult = { away: 0, due: 0, sent: 0 };
+  // People with push on (only they can be reached).
+  const withPush = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await admin.from("push_subscriptions").select("user_id").range(from, from + 999);
+    if (error) return null; // before migration 0018
+    for (const r of data ?? []) withPush.add(r.user_id as string);
+    if (!data || data.length < 1000) break;
+  }
+  if (!withPush.size) return result;
+
+  const cutoff = new Date(now.getTime() - 2 * 864e5).toISOString(); // can't be 2 whole days away otherwise
+  const ids = Array.from(withPush);
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await admin
+      .from("notification_settings")
+      .select("user_id, time_zone, last_seen_at, comeback")
+      .in("user_id", ids.slice(i, i + 200))
+      .lt("last_seen_at", cutoff);
+    if (error) throw new Error(`read last visits: ${error.message}`);
+    for (const row of (data ?? []) as SeenRow[]) {
+      if (row.comeback === false) continue;
+      const tz = safeZone(row.time_zone);
+      const seen = new Date(row.last_seen_at);
+      const stage = comebackStage(seen, now, tz);
+      if (!stage) continue;
+      result.away++;
+      const h = hourIn(tz, now);
+      if (h < COMEBACK_FROM || h >= COMEBACK_TO) continue;
+      result.due++;
+      result.sent += await notify(admin, {
+        users: [row.user_id],
+        kind: "comeback",
+        key: `comeback:${dayIn(tz, seen)}:${stage.stage}`,
+        title: stage.title,
+        body: stage.body,
+        link: "/today",
+      });
+    }
+  }
+  return result;
+}
+
 export interface AdminCheckResult {
   ran: boolean;
   overdue: number;
@@ -173,10 +257,12 @@ export async function runNoticesJob(admin: SupabaseClient, now = new Date()): Pr
   if (probe.error) return { ok: false, summary: `Couldn't read notifications: ${probe.error.message}` };
 
   const risk = await sendStreakAtRisk(admin, now);
+  const comeback = await sendComeback(admin, now);
   const checks = await adminDailyChecks(admin, now);
   const removed = await cleanupNotices(admin, now);
   const parts = [`Streak reminders: ${risk.sent} sent (${risk.due} due of ${risk.candidates} at risk).`];
+  if (comeback) parts.push(`Come-back nudges: ${comeback.sent} sent (${comeback.due} due of ${comeback.away} away).`);
   if (checks.ran) parts.push(`Admin checks done${checks.overdue ? `, ${checks.overdue} overdue erasures` : ""}${checks.staleJobs ? `, ${checks.staleJobs} stalled jobs` : ""}.`);
   if (removed) parts.push(`Removed ${removed} old notices.`);
-  return { ok: true, summary: parts.join(" "), details: { risk, checks, removed } };
+  return { ok: true, summary: parts.join(" "), details: { risk, comeback, checks, removed } };
 }

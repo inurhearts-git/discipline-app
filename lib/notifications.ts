@@ -16,20 +16,17 @@
 // it (an approval, a report, a job) always goes ahead.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendPush } from "@/lib/push";
 
-export const USER_KINDS = ["streak_milestone", "streak_at_risk", "collection_new", "submission_approved", "submission_rejected"] as const;
+export const USER_KINDS = ["streak_milestone", "streak_at_risk", "collection_new", "submission_approved", "submission_rejected", "comeback"] as const;
 export const ADMIN_KINDS = ["admin_job_failed", "admin_reports", "admin_submissions", "admin_erasures"] as const;
 export type NoticeKind = (typeof USER_KINDS)[number] | (typeof ADMIN_KINDS)[number];
 
-// The switches on Profile. Admin notices have no switch.
-export const NOTICE_SETTINGS = [
-  { id: "streak", label: "Streak", hint: "Milestones, and a reminder about 3 hours before your streak would end" },
-  { id: "collections", label: "New collections", hint: "When a new collection appears on Explore" },
-  { id: "submissions", label: "Your submissions", hint: "When something you submitted is approved or not approved" },
-] as const;
-export type NoticeSettingId = (typeof NOTICE_SETTINGS)[number]["id"];
-export type NoticeSettings = Record<NoticeSettingId, boolean>;
-export const DEFAULT_SETTINGS: NoticeSettings = { streak: true, collections: true, submissions: true };
+export { NOTICE_SETTINGS, DEFAULT_SETTINGS, type NoticeSettingId, type NoticeSettings } from "@/lib/notice-settings";
+
+// Kinds that also go to the person's phone or browser when push is on
+// (lib/push.ts). The first notice of the day only, never the merged repeats.
+export const PUSH_KINDS: readonly NoticeKind[] = ["streak_at_risk", "comeback", "submission_approved", "submission_rejected", "admin_job_failed"];
 
 // Postgres / PostgREST codes for "that table or function doesn't exist yet".
 export function isMissing(code: string | undefined): boolean {
@@ -84,7 +81,12 @@ export async function notify(admin: SupabaseClient, a: NotifyArgs): Promise<numb
       if (!isMissing(error.code)) console.error(`[notify:${a.kind}] ${error.message}`);
       return written;
     }
-    written += Array.isArray(data) ? data.length : 0;
+    const rows = (Array.isArray(data) ? data : []) as { user_id: string; count: number }[];
+    written += rows.length;
+    if (PUSH_KINDS.includes(a.kind)) {
+      const fresh = rows.filter((r) => r.count === 1).map((r) => r.user_id);
+      if (fresh.length) await sendPush(admin, fresh, { title: a.title, body: a.body, url: a.link, tag: a.kind });
+    }
   }
   return written;
 }
