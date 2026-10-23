@@ -15,6 +15,7 @@ import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
 import { NoticeSettingsCard } from "@/components/profile/NoticeSettings";
 import { MoodLookToggle } from "@/components/profile/MoodLookToggle";
+import { BirthdaysCard, type BirthdayRow } from "@/components/profile/BirthdaysCard";
 import type { NoticeSettings } from "@/lib/notice-settings";
 import { disablePush } from "@/lib/push-client";
 
@@ -37,6 +38,7 @@ interface ProfileClientProps {
   lastJournalAt: string | null;
   noticeSettings: NoticeSettings | null;
   pushState: "ready" | "no-keys" | "no-migration";
+  birthdays: BirthdayRow[] | null;
 }
 
 // Literal hex on purpose: these values are saved to profiles.avatar_color,
@@ -49,7 +51,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt, noticeSettings, pushState }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt, noticeSettings, pushState, birthdays }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -417,6 +419,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
         </div>
 
         <NoticeSettingsCard settings={noticeSettings} role={profile.role} pushState={pushState} />
+        <BirthdaysCard initial={birthdays} />
 
         <Link
           href="/onboarding"

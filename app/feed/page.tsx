@@ -9,6 +9,8 @@ import { isMoodId } from "@/lib/moods";
 import { COLLECTION_COLUMNS, type Collection } from "@/lib/collections";
 import { getQuoteOfTheDay } from "@/lib/qotd-server";
 import { FeedClient, type MusicTrack } from "@/components/feed/FeedClient";
+import type { BirthdayCard } from "@/components/feed/BirthdayCard";
+import { birthdayMessage, birthdayQuote, isBirthdayOn, ownBirthdayQuote } from "@/lib/birthdays";
 import type { ContentItem, Profile } from "@/lib/database.types";
 
 const ITEM_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id, moods";
@@ -105,7 +107,7 @@ function blendByMood<T>(matching: T[], others: T[]): T[] {
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: { item?: string; tag?: string; mood?: string; collection?: string };
+  searchParams: { item?: string; tag?: string; mood?: string; collection?: string; birthday?: string };
 }) {
   const supabase = createClient();
   const {
@@ -264,8 +266,28 @@ export default async function FeedPage({
     .select("id, title, artist, audio_url, mood_tags")
     .eq("is_active", true);
 
+  // Birthday cards for today (your own, and the ones you added on Profile),
+  // shown after the mood picker. Before migration 0019 only your own.
+  const birthdayCards: BirthdayCard[] = [];
+  const year = Number(today.slice(0, 4));
+  if (profile.birthdate) {
+    const [, bm, bd] = profile.birthdate.split("-").map(Number);
+    if (isBirthdayOn(bm, bd, today)) {
+      const first = (profile.display_name || "").trim().split(/\s+/)[0];
+      birthdayCards.push({ key: "self", kind: "self", title: `Happy birthday${first ? `, ${first}` : ""}! 🎂`, body: "A quote for your day.", quote: ownBirthdayQuote(user.id, year) });
+    }
+  }
+  const { data: bdays } = await supabase.from("birthdays").select("id, relation, pronoun, month, day").eq("user_id", user.id);
+  for (const b of (bdays ?? []) as { id: string; relation: string; pronoun: string; month: number; day: number }[]) {
+    if (!isBirthdayOn(b.month, b.day, today)) continue;
+    birthdayCards.push({ key: b.id, kind: "other", ...birthdayMessage(b), quote: birthdayQuote(b.relation, b.id, year) });
+  }
+  const openBirthday = searchParams.birthday && birthdayCards.some((c) => c.key === searchParams.birthday) ? searchParams.birthday : null;
+
   return (
     <FeedClient
+      birthdayCards={birthdayCards}
+      openBirthday={openBirthday}
       items={items}
       profile={profile}
       initialLiked={liked}

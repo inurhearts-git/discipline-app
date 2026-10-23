@@ -3,6 +3,7 @@
 //   1. "Streak at risk": people who counted yesterday but not yet today get
 //      one reminder about 3 hours before their own midnight.
 //   1b. "We miss you": a push nudge after 2 whole days away, and after 10.
+//   1c. Birthday reminders around 9 AM local time.
 //   2. Once a day (from 06:00 UTC, after erasure and auto refill have run):
 //      tells admins about submissions waiting, overdue erasures and jobs that
 //      stopped running.
@@ -14,6 +15,7 @@ import { STREAK_MIN_MS, streakThroughYesterday } from "@/lib/streak";
 import { erasureStatus } from "@/lib/admins";
 import { jobHealth, type JobOutcome } from "@/lib/cron-monitor";
 import { addDays, dayIn, hourIn, nextMidnight, safeZone } from "@/lib/day";
+import { birthdayMessage, isBirthdayOn } from "@/lib/birthdays";
 import { isMissing, notify, notifyAdmins, noticeSubmissionsWaiting, utcDay } from "@/lib/notifications";
 
 // Each person's day runs midnight to midnight in their own time zone (the
@@ -203,6 +205,78 @@ export async function sendComeback(admin: SupabaseClient, now = new Date()): Pro
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Birthdays (migration 0019): a reminder around 9 AM the person's time on each
+// birthday they added, with a quote to send. In-app and pushed.
+// ---------------------------------------------------------------------------
+const BIRTHDAY_FROM = 9; // local hour; runs are hourly and can start late,
+const BIRTHDAY_TO = 11; // so 09:00 to 10:59 always catches one
+
+export interface BirthdayResult {
+  today: number; // birthdays falling on their owner's today
+  due: number;
+  sent: number;
+}
+
+interface BirthdayRow {
+  id: string;
+  user_id: string;
+  relation: string;
+  pronoun: string;
+  month: number;
+  day: number;
+}
+
+export async function sendBirthdayReminders(admin: SupabaseClient, now = new Date()): Promise<BirthdayResult | null> {
+  // Every date some zone could be on right now, and 28 Feb also covers 29 Feb.
+  const utc = utcDay(now);
+  const dates = [addDays(utc, -1), utc, addDays(utc, 1)];
+  const pairs = new Set<string>();
+  for (const d of dates) {
+    const [, m, day] = d.split("-").map(Number);
+    pairs.add(`${m}-${day}`);
+    if (m === 2 && day === 28) pairs.add("2-29");
+  }
+  const rows: BirthdayRow[] = [];
+  for (const p of Array.from(pairs)) {
+    const [m, d] = p.split("-").map(Number);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from("birthdays").select("id, user_id, relation, pronoun, month, day").eq("month", m).eq("day", d).range(from, from + 999);
+      if (error) return null; // before migration 0019
+      rows.push(...((data ?? []) as BirthdayRow[]));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  const result: BirthdayResult = { today: 0, due: 0, sent: 0 };
+  if (!rows.length) return result;
+
+  const owners = Array.from(new Set(rows.map((r) => r.user_id)));
+  const zones = new Map<string, string>();
+  for (let i = 0; i < owners.length; i += 200) {
+    const { data } = await admin.from("notification_settings").select("user_id, time_zone").in("user_id", owners.slice(i, i + 200));
+    for (const s of data ?? []) zones.set(s.user_id as string, safeZone(s.time_zone as string | null));
+  }
+  for (const b of rows) {
+    const tz = zones.get(b.user_id) ?? "UTC";
+    const today = dayIn(tz, now);
+    if (!isBirthdayOn(b.month, b.day, today)) continue;
+    result.today++;
+    const h = hourIn(tz, now);
+    if (h < BIRTHDAY_FROM || h >= BIRTHDAY_TO) continue;
+    result.due++;
+    const msg = birthdayMessage(b);
+    result.sent += await notify(admin, {
+      users: [b.user_id],
+      kind: "birthday",
+      key: `birthday:${b.id}:${today.slice(0, 4)}`,
+      title: msg.title,
+      body: msg.body,
+      link: `/feed?birthday=${b.id}`,
+    });
+  }
+  return result;
+}
+
 export interface AdminCheckResult {
   ran: boolean;
   overdue: number;
@@ -258,11 +332,13 @@ export async function runNoticesJob(admin: SupabaseClient, now = new Date()): Pr
 
   const risk = await sendStreakAtRisk(admin, now);
   const comeback = await sendComeback(admin, now);
+  const birthdays = await sendBirthdayReminders(admin, now);
   const checks = await adminDailyChecks(admin, now);
   const removed = await cleanupNotices(admin, now);
   const parts = [`Streak reminders: ${risk.sent} sent (${risk.due} due of ${risk.candidates} at risk).`];
   if (comeback) parts.push(`Come-back nudges: ${comeback.sent} sent (${comeback.due} due of ${comeback.away} away).`);
+  if (birthdays) parts.push(`Birthday reminders: ${birthdays.sent} sent (${birthdays.due} due of ${birthdays.today} today).`);
   if (checks.ran) parts.push(`Admin checks done${checks.overdue ? `, ${checks.overdue} overdue erasures` : ""}${checks.staleJobs ? `, ${checks.staleJobs} stalled jobs` : ""}.`);
   if (removed) parts.push(`Removed ${removed} old notices.`);
-  return { ok: true, summary: parts.join(" "), details: { risk, comeback, checks, removed } };
+  return { ok: true, summary: parts.join(" "), details: { risk, comeback, birthdays, checks, removed } };
 }

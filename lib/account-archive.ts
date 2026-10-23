@@ -52,6 +52,7 @@ export interface Snapshot {
   usage: Row[];
   reflections: Row[];
   journal: Row[];
+  birthdays?: Row[]; // from migration 0019; older archives don't have it
 }
 
 // The profile columns that are personal and get scrubbed, then restored.
@@ -79,6 +80,7 @@ export async function buildSnapshot(admin: SupabaseClient, userId: string): Prom
     usage: await fetchAll(admin, "usage_sessions", "user_id", userId),
     reflections: await fetchAll(admin, "reflections", "user_id", userId),
     journal: await fetchAll(admin, "journal_entries", "user_id", userId),
+    birthdays: await fetchAll(admin, "birthdays", "user_id", userId).catch(() => []),
   };
 }
 
@@ -93,9 +95,10 @@ export async function eraseLiveData(admin: SupabaseClient, userId: string): Prom
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) throw new Error(`erase ${table}: ${error.message}`);
   }
-  // Notices, notice settings and push devices are not archived: they go now
-  // (migrations 0017 and 0018; before they are run the tables don't exist).
-  for (const table of ["notifications", "notification_settings", "push_subscriptions"]) {
+  // Notices, notice settings and push devices are not archived: they go now.
+  // Birthdays are in the snapshot above, so they come back on restore.
+  // (Migrations 0017 to 0019; before they are run the tables don't exist.)
+  for (const table of ["notifications", "notification_settings", "push_subscriptions", "birthdays"]) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error && error.code !== "42P01" && error.code !== "PGRST205") throw new Error(`erase ${table}: ${error.message}`);
   }
@@ -141,6 +144,7 @@ export async function restoreSnapshot(admin: SupabaseClient, userId: string, sna
   await putBack(admin, "reflections", snap.reflections, "id");
   await putBack(admin, "user_content_interactions", snap.interactions, "user_id,content_id");
   await putBack(admin, "usage_sessions", snap.usage, "user_id,date");
+  if (snap.birthdays?.length) await putBack(admin, "birthdays", snap.birthdays, "id");
 }
 
 // After the window: remove the archive and the sign-in record for good. Quotes
