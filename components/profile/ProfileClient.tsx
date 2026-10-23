@@ -13,6 +13,8 @@ import type { Profile } from "@/lib/database.types";
 import { Stamp } from "@/components/journal/Stamp";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
+import { NoticeSettingsCard } from "@/components/profile/NoticeSettings";
+import type { NoticeSettings } from "@/lib/notifications";
 
 interface UsageDay {
   date: string;
@@ -31,6 +33,7 @@ interface ProfileClientProps {
   reflectionCount: number;
   journalCount: number;
   lastJournalAt: string | null;
+  noticeSettings: NoticeSettings | null;
 }
 
 // Literal hex on purpose: these values are saved to profiles.avatar_color,
@@ -43,7 +46,7 @@ const dayLabel = (dateStr: string) => {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 };
 
-export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt }: ProfileClientProps) {
+export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, streakBase, bestPast, pendingCount, adminAlert, savedCount, reflectionCount, journalCount, lastJournalAt, noticeSettings }: ProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
   const [profile, setProfile] = useState(initialProfile);
@@ -404,6 +407,8 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           </div>
           <ThemeToggle />
         </div>
+
+        <NoticeSettingsCard settings={noticeSettings} role={profile.role} />
 
         <Link
           href="/onboarding"

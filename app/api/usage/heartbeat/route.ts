@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DAILY_LIMIT_MS, MAX_HEARTBEAT_DELTA_MS, todayStr } from "@/lib/constants";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { STREAK_MIN_MS, milestoneAt, milestoneCopy, streakThroughYesterday } from "@/lib/streak";
+import { noticeStreakMilestone } from "@/lib/notifications";
 
 // POST /api/usage/heartbeat  { deltaMs: number }
 //
@@ -46,6 +48,27 @@ export async function POST(request: Request) {
 
   if (upsertError) {
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
+  }
+
+  // The tick that makes today count toward the streak: if that lands on a
+  // milestone (3, 7, 14 ... days), leave a notice under the bell (backlog 8n).
+  const before = existing?.ms_spent ?? 0;
+  if (before < STREAK_MIN_MS && msSpentToday >= STREAK_MIN_MS) {
+    const since = new Date(`${date}T00:00:00Z`);
+    since.setUTCDate(since.getUTCDate() - 400);
+    const { data: past } = await admin
+      .from("usage_sessions")
+      .select("date, ms_spent")
+      .eq("user_id", user.id)
+      .gte("date", since.toISOString().slice(0, 10))
+      .lt("date", date)
+      .gte("ms_spent", STREAK_MIN_MS);
+    const streak = streakThroughYesterday((past ?? []).map((r) => ({ date: r.date as string, ms_spent: Number(r.ms_spent) })), date) + 1;
+    const m = milestoneAt(streak);
+    if (m) {
+      const copy = milestoneCopy(m);
+      await noticeStreakMilestone(admin, user.id, m, copy.title, copy.line);
+    }
   }
 
   return NextResponse.json({ msSpentToday, limitMs: DAILY_LIMIT_MS });

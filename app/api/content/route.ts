@@ -4,6 +4,8 @@ import { isAdult } from "@/lib/constants";
 import { isMoodId } from "@/lib/moods";
 import type { ContentTag, ContentType, MaturityRating } from "@/lib/database.types";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { noticeSubmissionsWaiting } from "@/lib/notifications";
 
 // GET /api/content — approved feed items, RLS already restricts this to
 // status='approved' (plus your own submissions). Blueprint §6: mature
@@ -148,5 +150,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // A creator's submission puts a notice under the admins' bell (backlog 8n).
+  if (profile.role === "creator") await noticeSubmissionsWaiting(createAdminClient());
   return NextResponse.json({ item: data }, { status: 201 });
 }

@@ -33,6 +33,9 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
 
   // Editable captions for video clips (a raw YouTube title is often untidy).
   const [texts, setTexts] = useState<Record<string, string>>(Object.fromEntries(initialPending.map((p) => [p.id, p.text])));
+  // Rejecting asks for an optional reason, shown to the creator in their notice.
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
   const isAuto = (item: ContentItem) => (item as ContentItem & { auto_added?: boolean }).auto_added === true;
 
   const toggleMood = (itemId: string, mood: MoodId) =>
@@ -56,10 +59,12 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
           maturity_rating: action === "approve" ? ratings[item.id] : undefined,
           moods: action === "approve" ? moodsById[item.id] ?? [] : undefined,
           text: action === "approve" && item.type === "video" ? texts[item.id] : undefined,
+          reason: action === "reject" ? (reasons[item.id] ?? "").trim() || undefined : undefined,
         }),
       });
       if (res.ok) {
         setPending((prev) => prev.filter((p) => p.id !== item.id));
+        setRejectingId(null);
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Couldn't update that item. Try again.");
@@ -240,14 +245,40 @@ export function ModerateClient({ initialPending }: { initialPending: ContentItem
                 })}
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn variant="primary" disabled={busyId === item.id} onClick={() => act(item, "approve")} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
-                  <Check size={14} /> Approve
-                </Btn>
-                <Btn variant="danger" disabled={busyId === item.id} onClick={() => act(item, "reject")} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
-                  <Trash2 size={14} /> Reject
-                </Btn>
-              </div>
+              {rejectingId === item.id ? (
+                <div>
+                  <label className="mf-label" htmlFor={`reason-${item.id}`}>
+                    Reason for the creator (optional)
+                  </label>
+                  <textarea
+                    id={`reason-${item.id}`}
+                    className="mf-input"
+                    rows={2}
+                    maxLength={200}
+                    placeholder="For example: the source couldn't be checked"
+                    value={reasons[item.id] ?? ""}
+                    onChange={(e) => setReasons((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    style={{ resize: "vertical", marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn variant="danger" disabled={busyId === item.id} onClick={() => act(item, "reject")} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
+                      <Trash2 size={14} /> Reject
+                    </Btn>
+                    <Btn variant="ghost" disabled={busyId === item.id} onClick={() => setRejectingId(null)} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
+                      Cancel
+                    </Btn>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn variant="primary" disabled={busyId === item.id} onClick={() => act(item, "approve")} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
+                    <Check size={14} /> Approve
+                  </Btn>
+                  <Btn variant="danger" disabled={busyId === item.id} onClick={() => setRejectingId(item.id)} style={{ flex: 1, justifyContent: "center", padding: "8px" }}>
+                    <Trash2 size={14} /> Reject
+                  </Btn>
+                </div>
+              )}
             </div>
           ))}
         </div>
