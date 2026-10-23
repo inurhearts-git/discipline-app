@@ -20,18 +20,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+      # Errors are also written as annotations (::error::), so a failed run can
+      # be read from the commit's checks without opening the log.
+      - name: Gradle and Android SDK
+        run: |
+          set -o pipefail
+          GV=8.9
+          curl -sSfL "https://services.gradle.org/distributions/gradle-$GV-bin.zip" -o "$RUNNER_TEMP/gradle.zip" || { echo "::error::Couldn't download Gradle $GV"; exit 1; }
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-$GV/bin" >> "$GITHUB_PATH"
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          [ -d "$SDK" ] || { echo "::error::No Android SDK on this runner (ANDROID_HOME is empty)"; exit 1; }
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          if [ -n "$SM" ]; then
+            yes | "$SM" --licenses > /dev/null 2>&1 || true
+            "$SM" "platforms;android-34" "build-tools;34.0.0" > "$RUNNER_TEMP/sdk.log" 2>&1 || { echo "::error::sdkmanager failed: $(tail -3 "$RUNNER_TEMP/sdk.log" | tr '\n' ' ')"; exit 1; }
+          fi
 
       - name: Build the APK
         working-directory: android
@@ -50,7 +62,12 @@ jobs:
             unset ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD
             echo "No signing secrets: using the public test key."
           fi
-          gradle assembleRelease --no-daemon --stacktrace
+          if ! gradle assembleRelease --no-daemon > "$RUNNER_TEMP/build.log" 2>&1; then
+            grep -E "error:|ERROR|FAILURE|What went wrong|> " "$RUNNER_TEMP/build.log" | head -25 | while IFS= read -r line; do echo "::error::$line"; done
+            tail -40 "$RUNNER_TEMP/build.log"
+            exit 1
+          fi
+          tail -5 "$RUNNER_TEMP/build.log"
 
       - name: Publish as a pre-release
         env:
@@ -62,4 +79,5 @@ jobs:
             --prerelease \
             --target "${{ github.sha }}" \
             --title "Android test build ${{ github.run_number }}" \
-            --notes "Discipline for Android, test build ${{ github.run_number }} from ${{ github.sha }}. Install on an Android phone (allow installs from this source). Opens the live site full screen."
+            --notes "Discipline for Android, test build ${{ github.run_number }} from ${{ github.sha }}. Install on an Android phone (allow installs from this source). Opens the live site full screen." \
+            || { echo "::error::Couldn't create the release"; exit 1; }
