@@ -15,7 +15,7 @@ import { noticeJobFailed } from "@/lib/notifications";
 export const JOBS = [
   { id: "purge-deleted", label: "Erase deleted accounts", hourUtc: 3 },
   { id: "refill", label: "Auto refill", hourUtc: 4 },
-  // Runs every two hours (vercel.json); hourUtc is its first run.
+  // Runs every hour (vercel.json); hourUtc is its first run.
   { id: "notices", label: "Notices", hourUtc: 0 },
 ] as const;
 export type JobId = (typeof JOBS)[number]["id"] | "alert-test";

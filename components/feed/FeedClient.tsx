@@ -409,7 +409,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
             )}
           </Link>
           <span
-            title={todayCounted ? "Streak counted for today" : "Spend 2 minutes here today to keep your streak"}
+            title={todayCounted ? "Streak counted for today" : "Spend a few minutes here today to keep your streak"}
             style={{
               display: "flex",
               alignItems: "center",

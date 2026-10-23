@@ -1,7 +1,7 @@
-// The notices job (backlog item 8n). Runs every two hours (see vercel.json)
+// The notices job (backlog item 8n). Runs every hour (see vercel.json)
 // and does three things:
 //   1. "Streak at risk": people who counted yesterday but not yet today get
-//      one reminder, in their own evening, while there is still time.
+//      one reminder about 3 hours before their own midnight.
 //   2. Once a day (from 06:00 UTC, after erasure and auto refill have run):
 //      tells admins about submissions waiting, overdue erasures and jobs that
 //      stopped running.
@@ -12,21 +12,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { STREAK_MIN_MS, streakThroughYesterday } from "@/lib/streak";
 import { erasureStatus } from "@/lib/admins";
 import { jobHealth, type JobOutcome } from "@/lib/cron-monitor";
-import { addDays, dayIn, hourIn, safeZone } from "@/lib/day";
+import { addDays, dayIn, hourIn, nextMidnight, safeZone } from "@/lib/day";
 import { isMissing, notify, notifyAdmins, noticeSubmissionsWaiting, utcDay } from "@/lib/notifications";
 
 // Each person's day runs midnight to midnight in their own time zone (the
 // one their device reports, saved with their notice settings; UTC if none).
-// The reminder goes out in their evening, so there are always 2+ hours left.
-const EVENING_FROM = 18; // local hour
+// The reminder goes out about 3 hours before their midnight.
+const EVENING_FROM = 20; // local hour
 const EVENING_TO = 22;
 const ADMIN_CHECK_FROM_UTC = 6;
 
-// Is now their evening (18:00 to 22:00)? The job runs every two hours, so
-// every zone gets two chances, even when Vercel starts a run up to 59 minutes late.
+// Is it 20:00 to 22:00 where they are (2 to 4 hours before midnight)? The job
+// runs every hour, so every zone is reached even when Vercel starts a run up
+// to 59 minutes late; each person gets it once a day.
 export function atRiskDue(now: Date, tz: string): boolean {
   const h = hourIn(tz, now);
   return h >= EVENING_FROM && h < EVENING_TO;
+}
+
+// Whole hours left until their midnight, rounded down: "3 hours" from 20:00
+// to 20:59, "2 hours" if the run is late and lands after 21:00.
+export function hoursUntilMidnight(now: Date, tz: string): number {
+  return Math.max(1, Math.floor((nextMidnight(tz, now).getTime() - now.getTime() - 1) / 3600e3));
 }
 
 interface Settings {
@@ -63,7 +70,7 @@ async function recentQualifyingDays(admin: SupabaseClient, now: Date): Promise<M
 
 export interface AtRiskResult {
   candidates: number; // counted yesterday, not yet today (their own days)
-  due: number; // of those, in their evening now
+  due: number; // of those, 2 to 4 hours before their midnight now
   sent: number;
 }
 
@@ -97,12 +104,14 @@ export async function sendStreakAtRisk(admin: SupabaseClient, now = new Date()):
         .gte("ms_spent", STREAK_MIN_MS);
       if (usageError) throw new Error(`read streak: ${usageError.message}`);
       const n = Math.max(1, streakThroughYesterday((rows ?? []).map((r) => ({ date: r.date as string, ms_spent: Number(r.ms_spent) })), today));
+      const hours = hoursUntilMidnight(now, tz);
+      const left = hours === 1 ? "1 hour" : `${hours} hours`;
       result.sent += await notify(admin, {
         users: [id],
         kind: "streak_at_risk",
         key: `streak_at_risk:${today}`,
-        title: n === 1 ? "Make it two days in a row" : `Keep your ${n}-day streak going`,
-        body: n === 1 ? "You showed up yesterday. Spend 2 minutes in the feed before midnight to keep going." : "Spend 2 minutes in the feed before midnight to keep it.",
+        title: n === 1 ? `Your streak will end in ${left}` : `Your ${n}-day streak will end in ${left}`,
+        body: "Keep up the good work and maintain your streak: spend a few minutes on the app before midnight.",
         link: "/feed",
       });
     }
