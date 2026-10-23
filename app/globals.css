@@ -64,3 +64,229 @@ body {
   justify-content: center;
   padding: 24px 12px;
 }
+
+/* ---------------------------------------------------------------------------
+   Mood looks. components/ui/MoodLook.tsx sets data-mood on <html> on the Feed,
+   Today, Explore and People pages when a mood is picked for today. Every text
+   colour below keeps 4.5:1 contrast or more against --page, --ink and --ink3
+   in its theme (checked with a script; see the commit). --mood-glow is the
+   colour of the ambient layer, as "r, g, b".
+   --------------------------------------------------------------------------- */
+:root[data-mood="stressed"] {
+  --page: #081215;
+  --ink: #0f1b1e;
+  --ink2: #142327;
+  --ink3: #1a2c31;
+  --brass: #7cc2bd;
+  --brassDim: #3f7a76;
+  --ember: #d9876a;
+  --slate: #9aa6a3;
+  --onBrass: #0f1b1e;
+  --mood-glow: 124, 194, 189;
+}
+:root[data-theme="light"][data-mood="stressed"] {
+  --page: #dbe7e5;
+  --ink: #eef4f3;
+  --ink2: #e3ecea;
+  --ink3: #d7e3e0;
+  --brass: #2a625f;
+  --brassDim: #7cc2bd;
+  --ember: #9a4428;
+  --slate: #53605d;
+  --onBrass: #eef4f3;
+  --mood-glow: 42, 98, 95;
+}
+:root[data-mood="unmotivated"] {
+  --page: #100b06;
+  --ink: #1a130c;
+  --ink2: #231910;
+  --ink3: #2c2015;
+  --brass: #eba24e;
+  --brassDim: #9a6a30;
+  --ember: #e07a52;
+  --slate: #a69a8a;
+  --onBrass: #1a130c;
+  --mood-glow: 235, 162, 78;
+}
+:root[data-theme="light"][data-mood="unmotivated"] {
+  --page: #ecdcc6;
+  --ink: #f8efe4;
+  --ink2: #f0e3d2;
+  --ink3: #e8d8c3;
+  --brass: #7d4c10;
+  --brassDim: #eba24e;
+  --ember: #9c3f1e;
+  --slate: #62584b;
+  --onBrass: #f8efe4;
+  --mood-glow: 235, 162, 78;
+}
+:root[data-mood="overthinking"] {
+  --page: #0a0e0a;
+  --ink: #121812;
+  --ink2: #182019;
+  --ink3: #1f2920;
+  --brass: #a7c19d;
+  --brassDim: #5f7a58;
+  --ember: #d3876a;
+  --slate: #99a294;
+  --onBrass: #121812;
+  --mood-glow: 167, 193, 157;
+}
+:root[data-theme="light"][data-mood="overthinking"] {
+  --page: #dfe7da;
+  --ink: #eff3ec;
+  --ink2: #e4ebe0;
+  --ink3: #d9e2d3;
+  --brass: #45613d;
+  --brassDim: #a7c19d;
+  --ember: #9c4428;
+  --slate: #555f51;
+  --onBrass: #eff3ec;
+  --mood-glow: 69, 97, 61;
+}
+:root[data-mood="grateful"] {
+  --page: #100a0b;
+  --ink: #1a1214;
+  --ink2: #22181a;
+  --ink3: #2b1f22;
+  --brass: #e8ab87;
+  --brassDim: #9a6650;
+  --ember: #e07a6a;
+  --slate: #a89b98;
+  --onBrass: #1a1214;
+  --mood-glow: 232, 171, 135;
+}
+:root[data-theme="light"][data-mood="grateful"] {
+  --page: #ecdbd3;
+  --ink: #f8eeea;
+  --ink2: #f0e2dc;
+  --ink3: #e8d6cf;
+  --brass: #874a30;
+  --brassDim: #e8ab87;
+  --ember: #9c3d2e;
+  --slate: #62575a;
+  --onBrass: #f8eeea;
+  --mood-glow: 200, 120, 90;
+}
+:root[data-mood="driven"] {
+  --page: #0d0a04;
+  --ink: #17120a;
+  --ink2: #1f190d;
+  --ink3: #282011;
+  --brass: #f5bd3c;
+  --brassDim: #a27a1c;
+  --ember: #ef8048;
+  --slate: #a69e8a;
+  --onBrass: #17120a;
+  --mood-glow: 245, 189, 60;
+}
+:root[data-theme="light"][data-mood="driven"] {
+  --page: #eee0bd;
+  --ink: #f9f2df;
+  --ink2: #f1e7cc;
+  --ink3: #e9dcb9;
+  --brass: #6e5106;
+  --brassDim: #f5bd3c;
+  --ember: #9a3f18;
+  --slate: #5f5747;
+  --onBrass: #f9f2df;
+  --mood-glow: 230, 170, 40;
+}
+
+/* Smooth change when a mood is picked or cleared. */
+body,
+.mf-shell {
+  transition: background-color 0.8s ease;
+}
+
+/* The ambient layer: edges and corners only, never behind text at strength. */
+.mood-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  overflow: hidden;
+}
+.mood-layer > i {
+  position: absolute;
+  display: block;
+}
+
+/* Stressed: a slow breathing glow at the edges, 6 s in and 6 s out. */
+.mood-stressed > i.glow {
+  inset: 0;
+  box-shadow: inset 0 0 90px 10px rgba(var(--mood-glow), 0.32);
+  animation: mood-breathe 12s ease-in-out infinite;
+}
+@keyframes mood-breathe {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+/* Can't be bothered: warm light slowly rising from the bottom. */
+.mood-unmotivated > i.glow {
+  left: -20%;
+  right: -20%;
+  bottom: -40%;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(var(--mood-glow), 0.30), rgba(var(--mood-glow), 0) 70%);
+  animation: mood-rise 18s ease-in-out infinite alternate;
+}
+@keyframes mood-rise {
+  from { transform: translateY(18%); opacity: 0.55; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Overthinking: still. A soft green frame, nothing moving. */
+.mood-overthinking > i.glow {
+  inset: 0;
+  box-shadow: inset 0 0 70px 0 rgba(var(--mood-glow), 0.20);
+}
+
+/* Grateful: a warm corner glow and a few specks of light drifting up. */
+.mood-grateful > i.glow {
+  inset: 0;
+  background: radial-gradient(circle at 100% 0%, rgba(var(--mood-glow), 0.20), rgba(var(--mood-glow), 0) 45%),
+    radial-gradient(circle at 0% 100%, rgba(var(--mood-glow), 0.16), rgba(var(--mood-glow), 0) 45%);
+}
+.mood-grateful > i.speck {
+  bottom: -8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(var(--mood-glow), 0.55);
+  animation: mood-drift 22s linear infinite;
+}
+@keyframes mood-drift {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 1; }
+  85% { opacity: 0.8; }
+  100% { transform: translateY(-760px); opacity: 0; }
+}
+
+/* Locked in: a light running along the top and bottom edges every few seconds. */
+.mood-driven > i.glow {
+  inset: 0;
+  box-shadow: inset 0 0 60px 0 rgba(var(--mood-glow), 0.16);
+}
+.mood-driven > i.run {
+  left: 0;
+  width: 38%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(var(--mood-glow), 0), rgba(var(--mood-glow), 0.95), rgba(var(--mood-glow), 0));
+  animation: mood-run 3.2s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+}
+.mood-driven > i.run.top { top: 0; }
+.mood-driven > i.run.bottom { bottom: 0; animation-delay: 1.6s; }
+@keyframes mood-run {
+  0% { transform: translateX(-110%); }
+  60%, 100% { transform: translateX(290%); }
+}
+
+/* Anyone who asked their device for less motion gets the colours, still. */
+@media (prefers-reduced-motion: reduce) {
+  .mood-layer > i { animation: none !important; }
+  .mood-grateful > i.speck,
+  .mood-driven > i.run { display: none; }
+  body, .mf-shell { transition: none; }
+}
