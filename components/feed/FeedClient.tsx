@@ -64,6 +64,9 @@ function startTrack(a: HTMLAudioElement, track: MusicTrack) {
   return a.play();
 }
 
+// The chips under the header sit in one wrapping row (see the feed overlay).
+const chipStyle = { pointerEvents: "auto" as const, whiteSpace: "nowrap" as const };
+
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
 export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, collection = null, featuredId, meaningIds = [] }: FeedClientProps) {
@@ -716,32 +719,46 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         })}
       </div>
 
-      {/* Always reachable: shows the active mood, or a "Mood" chip when none is set */}
-      <button
-        onClick={() => (collection ? window.location.assign("/feed") : setMoodOpen(true))}
-        data-theme={onVideo ? "dark" : undefined}
-        style={{ position: "absolute", top: 58, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: "none", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
-      >
-        {collection
-          ? `${collection.emoji} ${collection.title} · exit`
-          : activeMood
-          ? `${MOODS.find((m) => m.id === activeMood)?.emoji} ${MOODS.find((m) => m.id === activeMood)?.label} · change`
-          : "💭 Mood"}
-      </button>
-
-      {moodId && !collection && (
+      {/* Chips under the header: mood, its moment, and "Tap for sound". One
+          row that wraps, so a long mood name never runs into the next chip. */}
+      <div style={{ position: "absolute", top: 58, left: 16, right: 16, zIndex: 25, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, pointerEvents: "none" }}>
+        {/* Always reachable: shows the active mood, or a "Mood" chip when none is set */}
         <button
-          onClick={() => {
-            setMomentOffer(false);
-            setMomentOpen(true);
-          }}
+          onClick={() => (collection ? window.location.assign("/feed") : setMoodOpen(true))}
           data-theme={onVideo ? "dark" : undefined}
-          aria-label={`Start ${MOMENTS[moodId].name}`}
-          style={{ position: "absolute", top: 88, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: `1px solid ${alpha(COLORS.brass, 50)}`, background: alpha(COLORS.ink, 70), color: COLORS.brass, fontSize: 11, cursor: "pointer" }}
+          style={{ ...chipStyle, padding: "5px 10px", borderRadius: 14, border: "1px solid transparent", background: alpha(COLORS.ink, 70), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
         >
-          ▶ {MOMENTS[moodId].name}
+          {collection
+            ? `${collection.emoji} ${collection.title} · exit`
+            : activeMood
+            ? `${MOODS.find((m) => m.id === activeMood)?.emoji} ${MOODS.find((m) => m.id === activeMood)?.label} · change`
+            : "💭 Mood"}
         </button>
-      )}
+
+        {moodId && !collection && (
+          <button
+            onClick={() => {
+              setMomentOffer(false);
+              setMomentOpen(true);
+            }}
+            data-theme={onVideo ? "dark" : undefined}
+            aria-label={`Start ${MOMENTS[moodId].name}`}
+            style={{ ...chipStyle, padding: "5px 10px", borderRadius: 14, border: `1px solid ${alpha(COLORS.brass, 50)}`, background: alpha(COLORS.ink, 70), color: COLORS.brass, fontSize: 11, cursor: "pointer" }}
+          >
+            ▶ {MOMENTS[moodId].name}
+          </button>
+        )}
+
+        {tracks.length > 0 && !unlocked && !muted && items[index]?.type !== "video" && (
+          <button
+            onClick={unlock}
+            data-theme={onVideo ? "dark" : undefined}
+            style={{ ...chipStyle, padding: "5px 10px", borderRadius: 14, border: `1px solid ${COLORS.line}`, background: alpha(COLORS.ink, 80), color: COLORS.parchment, fontSize: 11, cursor: "pointer" }}
+          >
+            ♪ Tap for sound
+          </button>
+        )}
+      </div>
 
       {momentOffer && moodId && !moodOpen && (
         <MomentOffer
@@ -779,15 +796,6 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         </div>
       )}
 
-      {tracks.length > 0 && !unlocked && !muted && items[index]?.type !== "video" && (
-        <button
-          onClick={unlock}
-          data-theme={onVideo ? "dark" : undefined}
-          style={{ position: "absolute", top: 58, left: "50%", transform: "translateX(-50%)", zIndex: 25, padding: "6px 12px", borderRadius: 14, border: `1px solid ${COLORS.line}`, background: alpha(COLORS.ink, 80), color: COLORS.parchment, fontSize: 12, cursor: "pointer" }}
-        >
-          ♪ Tap for sound
-        </button>
-      )}
 
       {celebrate !== null && (
         <div
