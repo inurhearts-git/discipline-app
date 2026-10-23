@@ -267,7 +267,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
               {currentStreak} <span style={{ fontSize: 13, color: COLORS.slate, fontFamily: "inherit" }}>{dayWord(currentStreak)}</span>
             </div>
             <div style={{ fontSize: 12, color: COLORS.slate }}>
-              Best {bestStreakDays} {dayWord(bestStreakDays)}
+              Longest streak: {bestStreakDays} {dayWord(bestStreakDays)}
             </div>
           </div>
 
