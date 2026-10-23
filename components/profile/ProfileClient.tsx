@@ -277,10 +277,10 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
           <p style={{ fontSize: 11, color: COLORS.slate, margin: "8px 0 0" }}>
             {currentStreak === 0
               ? bestStreakDays > 0
-                ? "Your last streak ended. Spend 2 minutes in the feed today to start a new one."
-                : "Spend 2 minutes in the feed today to start a streak."
+                ? "Your last streak ended. Spend a few minutes on the app to restart your streak."
+                : "Spend a few minutes on the app to start a streak."
               : `${upcoming === null ? "You've passed every milestone." : `${upcoming - currentStreak} more ${dayWord(upcoming - currentStreak)} to reach ${upcoming}.`} ${
-                  todayCounted ? "Today counts." : "Spend 2 minutes in the feed today to keep it going."
+                  todayCounted ? "Today counts." : "Spend a few minutes on the app today to keep it going."
                 }`}
           </p>
 

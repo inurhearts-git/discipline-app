@@ -23,7 +23,7 @@ export type NoticeKind = (typeof USER_KINDS)[number] | (typeof ADMIN_KINDS)[numb
 
 // The switches on Profile. Admin notices have no switch.
 export const NOTICE_SETTINGS = [
-  { id: "streak", label: "Streak", hint: "Milestones, and a reminder in your evening when your streak is about to end" },
+  { id: "streak", label: "Streak", hint: "Milestones, and a reminder about 3 hours before your streak would end" },
   { id: "collections", label: "New collections", hint: "When a new collection appears on Explore" },
   { id: "submissions", label: "Your submissions", hint: "When something you submitted is approved or not approved" },
 ] as const;
