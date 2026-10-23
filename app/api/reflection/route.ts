@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { todayStr } from "@/lib/constants";
+import { userToday } from "@/lib/day-server";
 import { REFLECTION_MAX } from "@/lib/reflection";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
@@ -22,10 +22,11 @@ export async function PUT(request: Request) {
   if (text.length > REFLECTION_MAX) return NextResponse.json({ error: `Keep it under ${REFLECTION_MAX} characters.` }, { status: 400 });
   const contentId = typeof body.contentId === "string" && body.contentId ? body.contentId : null;
 
+  const { today } = await userToday(supabase, user.id);
   const { data, error } = await supabase
     .from("reflections")
     .upsert(
-      { user_id: user.id, date: todayStr(), text, content_id: contentId, updated_at: new Date().toISOString() },
+      { user_id: user.id, date: today, text, content_id: contentId, updated_at: new Date().toISOString() },
       { onConflict: "user_id,date" }
     )
     .select("text, date")
@@ -49,7 +50,8 @@ export async function DELETE() {
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (isDeletedAccount(user)) return deletedAccountResponse();
 
-  const { error } = await supabase.from("reflections").delete().eq("user_id", user.id).eq("date", todayStr());
+  const { today } = await userToday(supabase, user.id);
+  const { error } = await supabase.from("reflections").delete().eq("user_id", user.id).eq("date", today);
   if (error) return NextResponse.json({ error: "Couldn't delete. Try again." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

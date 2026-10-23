@@ -82,4 +82,6 @@ export const isAdult = (birthdate: string | null): boolean => {
   return age >= 18;
 };
 
+// Today's date in UTC. Personal days (usage, streaks, reflections) use the
+// person's own zone instead: see lib/day.ts and userToday() in lib/day-server.ts.
 export const todayStr = () => new Date().toISOString().slice(0, 10);

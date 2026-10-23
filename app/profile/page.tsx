@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { erasureStatus, listAdmins } from "@/lib/admins";
 import { jobHealth } from "@/lib/cron-monitor";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { todayStr } from "@/lib/constants";
+import { addDays } from "@/lib/day";
+import { userToday } from "@/lib/day-server";
 import { bestStreak, streakThroughYesterday } from "@/lib/streak";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 import type { Profile } from "@/lib/database.types";
@@ -20,23 +21,20 @@ export default async function ProfilePage() {
   if (!profile) redirect("/login");
 
   const admin = createAdminClient();
+  // "Today" is the person's own calendar day (lib/day.ts).
+  const { today: todayKey } = await userToday(supabase, user.id);
   const { data: usage } = await admin
     .from("usage_sessions")
     .select("ms_spent")
     .eq("user_id", user.id)
-    .eq("date", todayStr())
+    .eq("date", todayKey)
     .maybeSingle();
 
   // Blueprint §9: "view own usage history (a small chart: minutes/day over
   // the last 7-30 days)". Build the last 7 days here, filling in any day
   // with no usage_sessions row as 0, so the chart always has a full week.
   const dateList: string[] = [];
-  const today = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    dateList.push(d.toISOString().slice(0, 10));
-  }
+  for (let i = 6; i >= 0; i--) dateList.push(addDays(todayKey, -i));
   const { data: usageRows } = await admin
     .from("usage_sessions")
     .select("date, ms_spent")
@@ -47,7 +45,6 @@ export default async function ProfilePage() {
 
   // Streak numbers. "Base" is the run ending yesterday and "bestPast" the longest
   // run before today; the client adds today live (so the dev usage reset keeps it right).
-  const todayKey = todayStr();
   const { data: allUsage } = await admin
     .from("usage_sessions")
     .select("date, ms_spent")

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DAILY_LIMIT_MS, isAdult, todayStr } from "@/lib/constants";
+import { DAILY_LIMIT_MS, isAdult } from "@/lib/constants";
+import { userToday } from "@/lib/day-server";
 import { streakThroughYesterday } from "@/lib/streak";
 import { isMoodId } from "@/lib/moods";
 import { COLLECTION_COLUMNS, type Collection } from "@/lib/collections";
@@ -117,11 +118,12 @@ export default async function FeedPage({
   if (!profile.onboarded) redirect("/onboarding");
 
   const admin = createAdminClient();
+  const { today } = await userToday(supabase, user.id);
   const { data: usage } = await admin
     .from("usage_sessions")
     .select("ms_spent")
     .eq("user_id", user.id)
-    .eq("date", todayStr())
+    .eq("date", today)
     .maybeSingle();
 
   const msSpentToday = usage?.ms_spent ?? 0;
@@ -130,10 +132,10 @@ export default async function FeedPage({
     .from("usage_sessions")
     .select("date, ms_spent")
     .eq("user_id", user.id)
-    .lt("date", todayStr())
+    .lt("date", today)
     .order("date", { ascending: false })
     .limit(400);
-  const streakBase = streakThroughYesterday(history ?? [], todayStr());
+  const streakBase = streakThroughYesterday(history ?? [], today);
   if (msSpentToday >= DAILY_LIMIT_MS) redirect("/limit");
 
   const adult = isAdult(profile.birthdate);
@@ -236,7 +238,7 @@ export default async function FeedPage({
 
   // Quote of the day now lives on its own page (/today, the sun button in the
   // feed header). The feed only labels the tile if it turns up naturally.
-  const featuredId = (await getQuoteOfTheDay(supabase))?.id ?? null;
+  const featuredId = (await getQuoteOfTheDay(supabase, today))?.id ?? null;
 
   // Which items have an approved plain-language meaning (migration 0009).
   // An error (e.g. the table isn't there yet) just means no "What it means" links.

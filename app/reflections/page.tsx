@@ -17,7 +17,7 @@ interface QuoteRow {
   attributed_to: string;
 }
 
-// "Sun 18 Oct 2026" from a YYYY-MM-DD day (UTC, like every day in the app).
+// "Sun 18 Oct 2026" from a YYYY-MM-DD day (the person's own calendar date).
 function fmtDay(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }

@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getQuoteOfTheDay } from "@/lib/qotd-server";
 import { getTodayReflection } from "@/lib/reflection";
 import { TodayClient } from "@/components/feed/TodayClient";
+import { userToday } from "@/lib/day-server";
 
-// Quote of the day: one quote or scripture, the same for everyone, new each UTC day.
+// Quote of the day: one quote or scripture, the same for everyone, new at the person's own midnight.
 // Reached from the sun button in the feed header.
 export default async function TodayPage() {
   const supabase = createClient();
@@ -13,7 +14,8 @@ export default async function TodayPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const item = await getQuoteOfTheDay(supabase);
+  const { today } = await userToday(supabase, user.id);
+  const item = await getQuoteOfTheDay(supabase, today);
 
   let liked = false;
   let saved = false;
@@ -28,7 +30,7 @@ export default async function TodayPage() {
     saved = row?.saved ?? false;
   }
 
-  const reflection = await getTodayReflection(supabase, user.id);
+  const reflection = await getTodayReflection(supabase, user.id, today);
 
   let hasMeaning = false;
   if (item) {

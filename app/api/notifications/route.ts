@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 import { isMissing } from "@/lib/notifications";
-import { safeZone } from "@/lib/notices-job";
+import { safeZone } from "@/lib/day";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 

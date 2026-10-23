@@ -7,7 +7,9 @@ import { Shell } from "@/components/ui/Shell";
 import { ResetCountdown } from "@/components/ui/ResetCountdown";
 import { ReflectionBox } from "@/components/ui/ReflectionBox";
 import { getTodayReflection } from "@/lib/reflection";
-import { COLORS, alpha, fmtClock, todayStr } from "@/lib/constants";
+import { COLORS, alpha, fmtClock } from "@/lib/constants";
+import { startOfDay } from "@/lib/day";
+import { userToday } from "@/lib/day-server";
 import { STREAK_MIN_MS, streakThroughYesterday } from "@/lib/streak";
 
 interface InteractionRow {
@@ -33,11 +35,12 @@ export default async function LimitPage() {
   if (!user) redirect("/login");
 
   const admin = createAdminClient();
+  const { tz, today } = await userToday(supabase, user.id);
   const { data: usage } = await admin
     .from("usage_sessions")
     .select("ms_spent")
     .eq("user_id", user.id)
-    .eq("date", todayStr())
+    .eq("date", today)
     .maybeSingle();
 
   const usageMs = usage?.ms_spent ?? 0;
@@ -47,14 +50,14 @@ export default async function LimitPage() {
     .from("usage_sessions")
     .select("date, ms_spent")
     .eq("user_id", user.id)
-    .lt("date", todayStr())
+    .lt("date", today)
     .order("date", { ascending: false })
     .limit(400);
-  const streak = streakThroughYesterday(history ?? [], todayStr()) + (usageMs >= STREAK_MIN_MS ? 1 : 0);
+  const streak = streakThroughYesterday(history ?? [], today) + (usageMs >= STREAK_MIN_MS ? 1 : 0);
 
   // What they liked or saved today. Needs migration 0006 (liked_at / saved_at);
   // if the columns aren't there yet, this simply comes back empty.
-  const startOfToday = `${todayStr()}T00:00:00Z`;
+  const startOfToday = startOfDay(today, tz).toISOString();
   const { data: todays } = await supabase
     .from("user_content_interactions")
     .select("content_id, liked, saved, liked_at, saved_at")
@@ -88,7 +91,7 @@ export default async function LimitPage() {
     recap = ranked.map((r) => byId.get(r.id)).filter((i): i is RecapItem => !!i);
   }
   const [carry, ...more] = recap;
-  const reflection = await getTodayReflection(supabase, user.id);
+  const reflection = await getTodayReflection(supabase, user.id, today);
 
   return (
     <Shell>

@@ -381,7 +381,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             </span>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
               {usageHistory.map((day) => {
-                const isToday = day.date === new Date().toISOString().slice(0, 10);
+                const isToday = day.date === usageHistory[usageHistory.length - 1]?.date;
                 const barPx = Math.max(3, Math.round(Math.min(1, day.msSpent / maxDayMs) * 38));
                 return (
                   <div key={day.date} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>

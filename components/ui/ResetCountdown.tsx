@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { COLORS } from "@/lib/constants";
 
-// Usage days roll over at UTC midnight (see todayStr() in lib/constants.ts),
-// so this counts down to the next 00:00 UTC, whatever the viewer's time zone.
+// Days roll over at the viewer's own midnight (lib/day.ts), so this counts
+// down to the next 00:00 on this device's clock.
 function msUntilReset(now: number): number {
   const d = new Date(now);
-  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
   return Math.max(0, next - now);
 }
 

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DAILY_LIMIT_MS, MAX_HEARTBEAT_DELTA_MS, todayStr } from "@/lib/constants";
+import { DAILY_LIMIT_MS, MAX_HEARTBEAT_DELTA_MS } from "@/lib/constants";
+import { addDays } from "@/lib/day";
+import { userToday } from "@/lib/day-server";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 import { STREAK_MIN_MS, milestoneAt, milestoneCopy, streakThroughYesterday } from "@/lib/streak";
 import { noticeStreakMilestone } from "@/lib/notifications";
@@ -31,7 +33,8 @@ export async function POST(request: Request) {
   const deltaMs = Math.max(0, Math.min(rawDelta, MAX_HEARTBEAT_DELTA_MS));
 
   const admin = createAdminClient();
-  const date = todayStr();
+  // The person's own calendar day (midnight to midnight where they are).
+  const { today: date } = await userToday(supabase, user.id);
 
   const { data: existing } = await admin
     .from("usage_sessions")
@@ -54,20 +57,18 @@ export async function POST(request: Request) {
   // milestone (3, 7, 14 ... days), leave a notice under the bell (backlog 8n).
   const before = existing?.ms_spent ?? 0;
   if (before < STREAK_MIN_MS && msSpentToday >= STREAK_MIN_MS) {
-    const since = new Date(`${date}T00:00:00Z`);
-    since.setUTCDate(since.getUTCDate() - 400);
     const { data: past } = await admin
       .from("usage_sessions")
       .select("date, ms_spent")
       .eq("user_id", user.id)
-      .gte("date", since.toISOString().slice(0, 10))
+      .gte("date", addDays(date, -400))
       .lt("date", date)
       .gte("ms_spent", STREAK_MIN_MS);
     const streak = streakThroughYesterday((past ?? []).map((r) => ({ date: r.date as string, ms_spent: Number(r.ms_spent) })), date) + 1;
     const m = milestoneAt(streak);
     if (m) {
       const copy = milestoneCopy(m);
-      await noticeStreakMilestone(admin, user.id, m, copy.title, copy.line);
+      await noticeStreakMilestone(admin, user.id, m, copy.title, copy.line, date);
     }
   }
 
@@ -89,7 +90,7 @@ export async function GET() {
   if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const admin = createAdminClient();
-  const date = todayStr();
+  const { today: date } = await userToday(supabase, user.id);
 
   const { data } = await admin
     .from("usage_sessions")

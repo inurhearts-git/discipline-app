@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { todayStr } from "@/lib/constants";
+import { userToday } from "@/lib/day-server";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 
 // POST /api/usage/reset — zeroes today's usage for the current user.
@@ -17,9 +17,10 @@ export async function POST() {
   if (isDeletedAccount(user)) return deletedAccountResponse();
 
   const admin = createAdminClient();
+  const { today } = await userToday(supabase, user.id);
   const { error } = await admin
     .from("usage_sessions")
-    .upsert({ user_id: user.id, date: todayStr(), ms_spent: 0 }, { onConflict: "user_id,date" });
+    .upsert({ user_id: user.id, date: today, ms_spent: 0 }, { onConflict: "user_id,date" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ msSpentToday: 0 });

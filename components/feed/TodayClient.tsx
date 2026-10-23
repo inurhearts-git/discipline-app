@@ -11,6 +11,7 @@ import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { ReportSheet } from "@/components/ui/ReportSheet";
 import { COLORS, alpha, tagColor } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
+import { localDay } from "@/lib/day";
 
 interface TodayClientProps {
   item: ContentItem | null;
@@ -29,10 +30,10 @@ export function TodayClient({ item, initialLiked, initialSaved, initialReflectio
   const [meaningOpen, setMeaningOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
-  // Clears the dot on the feed's sun button for the rest of the UTC day.
+  // Clears the dot on the feed's sun button for the rest of the day (this device's date).
   useEffect(() => {
     try {
-      localStorage.setItem("mf-qotd-day", new Date().toISOString().slice(0, 10));
+      localStorage.setItem("mf-qotd-day", localDay());
     } catch {
       /* storage blocked: the dot just stays */
     }

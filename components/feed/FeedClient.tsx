@@ -9,6 +9,7 @@ import { COLORS, DAILY_LIMIT_MS, HEARTBEAT_INTERVAL_MS, alpha, fmtClock, fmtCoun
 import type { ContentItem, Profile } from "@/lib/database.types";
 import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
+import { localDay } from "@/lib/day";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { ReportSheet } from "@/components/ui/ReportSheet";
@@ -301,7 +302,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
     try {
       const q = new URLSearchParams(window.location.search);
       if (q.has("item") || q.has("tag") || q.has("mood") || q.has("collection")) return;
-      const day = new Date().toISOString().slice(0, 10);
+      const day = localDay();
       if (localStorage.getItem("mf-mood-day") !== day) setMoodOpen(true);
     } catch {
       // storage unavailable: skip the picker
@@ -309,7 +310,7 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   }, []);
   const pickMood = (id: MoodId | null) => {
     try {
-      localStorage.setItem("mf-mood-day", new Date().toISOString().slice(0, 10));
+      localStorage.setItem("mf-mood-day", localDay());
     } catch {
       // ignore
     }
@@ -339,11 +340,11 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
   const avatarBg = alpha(avatarFg, 15);
 
   // Dot on the sun button until today's quote of the day has been opened
-  // (/today stores the UTC date in localStorage "mf-qotd-day").
+  // (/today stores this device's date in localStorage "mf-qotd-day").
   const [qotdNew, setQotdNew] = useState(false);
   useEffect(() => {
     try {
-      setQotdNew(localStorage.getItem("mf-qotd-day") !== new Date().toISOString().slice(0, 10));
+      setQotdNew(localStorage.getItem("mf-qotd-day") !== localDay());
     } catch {
       /* storage blocked: no dot */
     }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeSync } from "@/components/ui/ThemeSync";
+import { ZoneSync } from "@/components/ui/ZoneSync";
 
 export const metadata: Metadata = {
   title: "Discipline",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ThemeSync />
+        <ZoneSync />
         {children}
       </body>
     </html>

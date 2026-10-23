@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { addDays } from "@/lib/day";
+import { userToday } from "@/lib/day-server";
 
 // GET /api/usage/history?days=7
 // Returns the user's own usage_sessions rows for the last N days, with
@@ -18,13 +20,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const days = Math.min(30, Math.max(1, Number(searchParams.get("days")) || 7));
 
+  const { today } = await userToday(supabase, user.id);
   const dateList: string[] = [];
-  const today = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    dateList.push(d.toISOString().slice(0, 10));
-  }
+  for (let i = days - 1; i >= 0; i--) dateList.push(addDays(today, -i));
 
   const { data, error } = await supabase
     .from("usage_sessions")

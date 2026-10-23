@@ -24,7 +24,7 @@ export default function PrivacyPage() {
                 "What you set up: interests, bio, avatar colour, and the mood you pick.",
                 "How you use the app: the time you spend each day (for the daily limit and streaks), and which items you view, like or save.",
                 "What you write: one-line reflections, private journal entries, and anything you submit or report.",
-                "Notices we show you in the app (under the bell), which kinds you switched off, and your device's time zone, so a streak reminder arrives in your evening.",
+                "Notices we show you in the app (under the bell), which kinds you switched off, and your device's time zone, so your day, your daily hour and your streak run from your own midnight and a streak reminder arrives in your evening.",
                 "That you accepted these terms, and when.",
               ]}
             />
