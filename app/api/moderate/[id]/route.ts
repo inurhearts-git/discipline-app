@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isMoodId } from "@/lib/moods";
 import { draftAndStore, meaningConfigured } from "@/lib/meaning";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { noticeSubmissionReviewed, refreshSubmissionsWaiting } from "@/lib/notifications";
 
 // Leaves time for the Claude draft made on approval.
 export const maxDuration = 30;
@@ -11,7 +12,8 @@ export const maxDuration = 30;
 // POST /api/moderate/[id]
 //   { action: "approve" | "reject",
 //     maturity_rating?: "general" | "mature",
-//     moods?: string[] }
+//     moods?: string[],
+//     reason?: string }      shown to the creator when rejecting (optional)
 //
 // This is the fix for the prototype's biggest gap: approval used to be a
 // plain client-side write to shared storage, trustworthy for a demo but
@@ -73,6 +75,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     } catch (e) {
       console.error("[moderate] meaning draft failed", params.id, e instanceof Error ? e.message : e);
     }
+  }
+  // Tell the creator (backlog 8n). Never blocks the review.
+  if (data) {
+    const reason = action === "rejected" && typeof body.reason === "string" ? body.reason.trim().slice(0, 200) : null;
+    await noticeSubmissionReviewed(admin, data, action, user.id, reason);
+    await refreshSubmissionsWaiting(admin);
   }
   return NextResponse.json({ item: data, meaningDrafted });
 }

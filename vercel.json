@@ -7,6 +7,50 @@
     {
       "path": "/api/cron/refill",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/notices/00",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/notices/02",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/notices/04",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/notices/06",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/notices/08",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/notices/10",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/notices/12",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/notices/14",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/notices/16",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/notices/18",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/notices/20",
+      "schedule": "0 20 * * *"
     }
   ]
 }

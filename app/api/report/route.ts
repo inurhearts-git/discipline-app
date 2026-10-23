@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { noticeNewReport } from "@/lib/notifications";
 
 const REASONS = ["wrong_source", "inaccurate", "inappropriate", "broken_video", "other"] as const;
 const DAILY_LIMIT = 20; // reports one person can send in 24 hours
@@ -55,5 +56,6 @@ export async function POST(request: Request) {
     .insert({ content_id: contentId, reporter_id: user.id, reason, note: note || null });
   if (error) return NextResponse.json({ error: "Couldn't send your report. Please try again." }, { status: 500 });
 
+  await noticeNewReport(admin); // admins' bell (backlog 8n)
   return NextResponse.json({ ok: true });
 }

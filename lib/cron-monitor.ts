@@ -10,10 +10,13 @@
 // Server-only.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { noticeJobFailed } from "@/lib/notifications";
 
 export const JOBS = [
   { id: "purge-deleted", label: "Erase deleted accounts", hourUtc: 3 },
   { id: "refill", label: "Auto refill", hourUtc: 4 },
+  // Runs every two hours (vercel.json); hourUtc is its first run.
+  { id: "notices", label: "Notices", hourUtc: 0 },
 ] as const;
 export type JobId = (typeof JOBS)[number]["id"] | "alert-test";
 
@@ -57,6 +60,9 @@ export async function monitorCron(admin: SupabaseClient, job: JobId, run: () => 
     console.error(`[cron:${job}] FAILED: ${outcome.summary}`);
     alert = await sendAlert(`Discipline: "${job}" job failed`, `${outcome.summary}\n\nStarted ${startedAt} (UTC).\nSee Profile > Admins for details.`);
     if (!alert.ok && alert.reason !== "not configured") console.error(`[cron:${job}] alert email failed: ${alert.reason}`);
+    // And a notice under the bell for every admin (migration 0017).
+    const label = JOBS.find((j) => j.id === job)?.label ?? (job === "alert-test" ? "Test alert" : job);
+    await noticeJobFailed(admin, job, label, outcome.summary);
   }
   return { ...outcome, recorded, alert };
 }

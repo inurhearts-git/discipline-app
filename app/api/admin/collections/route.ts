@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCollectionInput } from "@/lib/collections";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
+import { noticeNewCollection } from "@/lib/notifications";
 
 async function requireAdmin() {
   const supabase = createClient();
@@ -17,15 +18,19 @@ async function requireAdmin() {
 }
 
 // POST /api/admin/collections: create. PATCH { id, ... }: update. DELETE { id }: remove. Admin only.
+// A new active collection, or one switched from hidden to active, is announced
+// under everyone's bell (backlog 8n): once per collection, only if it has items.
 export async function POST(request: Request) {
   const denied = await requireAdmin();
   if (denied) return denied;
   const body = await request.json().catch(() => null);
   const parsed = parseCollectionInput(body);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const { data, error } = await createAdminClient().from("collections").insert(parsed.value).select("id").single();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("collections").insert(parsed.value).select("id").single();
   if (error) return NextResponse.json({ error: "Couldn't save that. Is migration 0014 run?" }, { status: 500 });
-  return NextResponse.json({ id: data.id });
+  const announced = parsed.value.is_active ? await noticeNewCollection(admin, { id: data.id, ...parsed.value }) : 0;
+  return NextResponse.json({ id: data.id, announced });
 }
 
 export async function PATCH(request: Request) {
@@ -36,9 +41,13 @@ export async function PATCH(request: Request) {
   if (!id) return NextResponse.json({ error: "Bad request" }, { status: 400 });
   const parsed = parseCollectionInput(body);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const { error } = await createAdminClient().from("collections").update(parsed.value).eq("id", id);
+  const admin = createAdminClient();
+  const { data: before } = await admin.from("collections").select("is_active").eq("id", id).maybeSingle();
+  const { error } = await admin.from("collections").update(parsed.value).eq("id", id);
   if (error) return NextResponse.json({ error: "Couldn't save that. Try again." }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  const switchedOn = before?.is_active === false && parsed.value.is_active;
+  const announced = switchedOn ? await noticeNewCollection(admin, { id, ...parsed.value }) : 0;
+  return NextResponse.json({ ok: true, announced });
 }
 
 export async function DELETE(request: Request) {

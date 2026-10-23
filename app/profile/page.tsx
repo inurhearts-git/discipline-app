@@ -7,6 +7,7 @@ import { todayStr } from "@/lib/constants";
 import { bestStreak, streakThroughYesterday } from "@/lib/streak";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 import type { Profile } from "@/lib/database.types";
+import { DEFAULT_SETTINGS, type NoticeSettings } from "@/lib/notifications";
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -76,6 +77,15 @@ export default async function ProfilePage() {
     .order("created_at", { ascending: false })
     .limit(1);
 
+  // Notice switches (migration 0017). No row yet means all on; an error
+  // (migration not run) hides the switches.
+  const { data: noticeRow, error: noticeError } = await supabase
+    .from("notification_settings")
+    .select("streak, collections, submissions")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const noticeSettings: NoticeSettings | null = noticeError ? null : { ...DEFAULT_SETTINGS, ...(noticeRow ?? {}) };
+
   let pendingCount = 0;
   let adminAlert: { lone: boolean; overdue: number; jobProblems: string[] } | null = null;
   if (profile.role === "admin") {
@@ -107,6 +117,7 @@ export default async function ProfilePage() {
       reflectionCount={reflectionCount ?? 0}
       journalCount={journalCount ?? 0}
       lastJournalAt={latestEntries?.[0]?.created_at ?? null}
+      noticeSettings={noticeSettings}
     />
   );
 }

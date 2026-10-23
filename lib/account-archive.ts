@@ -93,6 +93,12 @@ export async function eraseLiveData(admin: SupabaseClient, userId: string): Prom
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) throw new Error(`erase ${table}: ${error.message}`);
   }
+  // Notices and notice settings are not archived: they go now (migration 0017;
+  // before it is run the tables don't exist, which is fine).
+  for (const table of ["notifications", "notification_settings"]) {
+    const { error } = await admin.from(table).delete().eq("user_id", userId);
+    if (error && error.code !== "42P01" && error.code !== "PGRST205") throw new Error(`erase ${table}: ${error.message}`);
+  }
   // Their error reports stay (they help fix content) but lose the link to them.
   await admin.from("content_reports").update({ reporter_id: null }).eq("reporter_id", userId);
 
