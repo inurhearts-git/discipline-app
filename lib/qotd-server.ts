@@ -1,13 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { pickQuoteOfTheDay } from "@/lib/qotd";
-import { todayStr } from "@/lib/constants";
 import type { ContentItem } from "@/lib/database.types";
 
 export const QOTD_COLUMNS = "id, type, tag, text, attributed_to, source, video_platform, video_id, view_count, maturity_rating, person_id, audio_track_id, moods";
 
 // Today's quote of the day: one approved, general-audience quote or scripture,
-// the same for everyone, new each UTC day. Null when there is nothing to pick.
-export async function getQuoteOfTheDay(supabase: SupabaseClient): Promise<ContentItem | null> {
+// the same for everyone on the same date, new at each person's own midnight
+// (`today` from userToday() in lib/day-server.ts). Null when there is nothing to pick.
+export async function getQuoteOfTheDay(supabase: SupabaseClient, today: string): Promise<ContentItem | null> {
   const { data: candidates } = await supabase
     .from("content_items")
     .select("id")
@@ -16,7 +16,7 @@ export async function getQuoteOfTheDay(supabase: SupabaseClient): Promise<Conten
     .in("tag", ["QUOTE", "SCRIPTURE"])
     .limit(2000)
     .returns<{ id: string }[]>();
-  const pick = pickQuoteOfTheDay((candidates ?? []).map((c) => c.id), todayStr());
+  const pick = pickQuoteOfTheDay((candidates ?? []).map((c) => c.id), today);
   if (!pick) return null;
   const { data } = await supabase.from("content_items").select(QOTD_COLUMNS).eq("id", pick).maybeSingle<ContentItem>();
   return data ?? null;

@@ -1,4 +1,4 @@
-// Quote of the day: one quote or scripture, the same for everyone, new each UTC day.
+// Quote of the day: one quote or scripture, the same for everyone on the same date.
 
 // Small, stable string hash (FNV-1a).
 function hash(s: string): number {

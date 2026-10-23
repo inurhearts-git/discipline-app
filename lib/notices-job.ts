@@ -12,60 +12,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { STREAK_MIN_MS, streakThroughYesterday } from "@/lib/streak";
 import { erasureStatus } from "@/lib/admins";
 import { jobHealth, type JobOutcome } from "@/lib/cron-monitor";
+import { addDays, dayIn, hourIn, safeZone } from "@/lib/day";
 import { isMissing, notify, notifyAdmins, noticeSubmissionsWaiting, utcDay } from "@/lib/notifications";
 
-// Each person's streak day ends at midnight UTC (the same day used by the
-// daily limit). A reminder needs at least this long left to be useful.
-const MIN_HOURS_LEFT = 2;
-// ...and at most this long, so a reminder is never about a day that has only
-// just started.
-const MAX_HOURS_LEFT = 18;
+// Each person's day runs midnight to midnight in their own time zone (the
+// one their device reports, saved with their notice settings; UTC if none).
+// The reminder goes out in their evening, so there are always 2+ hours left.
 const EVENING_FROM = 18; // local hour
 const EVENING_TO = 22;
 const ADMIN_CHECK_FROM_UTC = 6;
 
-export function safeZone(tz: string | null | undefined): string {
-  if (!tz) return "UTC";
-  try {
-    new Intl.DateTimeFormat("en-GB", { timeZone: tz });
-    return tz;
-  } catch {
-    return "UTC";
-  }
-}
-
-export function localHour(now: Date, tz: string): number {
-  const h = new Intl.DateTimeFormat("en-GB", { timeZone: safeZone(tz), hour: "numeric", hourCycle: "h23" }).format(now);
-  return Number(h) % 24;
-}
-
-// Is now a good moment to remind someone in this time zone?
-// Normally: their evening (18:00 to 22:00), while the UTC day has between 2
-// and 18 hours left. West of about UTC-2 the evening comes after the UTC day ends, so
-// they get it in the last runs of the UTC day instead, if it's daytime there
-// (09:00 to 22:00 local). Each person gets at most one a day either way.
+// Is now their evening (18:00 to 22:00)? The job runs every two hours, so
+// every zone gets two chances, even when Vercel starts a run up to 59 minutes late.
 export function atRiskDue(now: Date, tz: string): boolean {
-  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-  const left = 24 - utcHours;
-  if (left < MIN_HOURS_LEFT) return false;
-  const h = localHour(now, tz);
-  if (h >= EVENING_FROM && h < EVENING_TO && left <= MAX_HOURS_LEFT) return true;
-  return now.getUTCHours() >= 18 && h >= 9 && h < EVENING_TO;
-}
-
-// "4:00 am tomorrow" or "8:00 pm" in their zone: when the current UTC day ends.
-export function dayEndsAt(now: Date, tz: string): string {
-  const zone = safeZone(tz);
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-  const time = end.toLocaleTimeString("en-GB", { timeZone: zone, hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
-  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: zone });
-  return day(end) === day(now) ? time : `${time} tomorrow`;
-}
-
-function prevDay(d: string, n = 1): string {
-  const t = new Date(`${d}T00:00:00Z`);
-  t.setUTCDate(t.getUTCDate() - n);
-  return t.toISOString().slice(0, 10);
+  const h = hourIn(tz, now);
+  return h >= EVENING_FROM && h < EVENING_TO;
 }
 
 interface Settings {
@@ -74,61 +35,74 @@ interface Settings {
   time_zone: string | null;
 }
 
-async function idsWhere(admin: SupabaseClient, date: string, minMs: number): Promise<string[]> {
-  const out: string[] = [];
+// Every qualifying day (2+ minutes) per person, for the dates any zone could
+// call "today" or "yesterday" right now (UTC date -2 to +1).
+async function recentQualifyingDays(admin: SupabaseClient, now: Date): Promise<Map<string, Set<string>>> {
+  const utc = utcDay(now);
+  const out = new Map<string, Set<string>>();
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await admin.from("usage_sessions").select("user_id").eq("date", date).gte("ms_spent", minMs).range(from, from + 999);
+    const { data, error } = await admin
+      .from("usage_sessions")
+      .select("user_id, date")
+      .gte("date", addDays(utc, -2))
+      .lte("date", addDays(utc, 1))
+      .gte("ms_spent", STREAK_MIN_MS)
+      .order("user_id")
+      .order("date")
+      .range(from, from + 999);
     if (error) throw new Error(`read usage: ${error.message}`);
-    out.push(...(data ?? []).map((r) => r.user_id as string));
+    for (const r of data ?? []) {
+      const set = out.get(r.user_id as string) ?? new Set<string>();
+      set.add(r.date as string);
+      out.set(r.user_id as string, set);
+    }
     if (!data || data.length < 1000) break;
   }
   return out;
 }
 
 export interface AtRiskResult {
-  candidates: number; // counted yesterday, not yet today
-  due: number; // of those, in their reminder window now
+  candidates: number; // counted yesterday, not yet today (their own days)
+  due: number; // of those, in their evening now
   sent: number;
 }
 
 export async function sendStreakAtRisk(admin: SupabaseClient, now = new Date()): Promise<AtRiskResult> {
-  const today = utcDay(now);
-  const yesterday = prevDay(today);
-  const countedYesterday = await idsWhere(admin, yesterday, STREAK_MIN_MS);
-  const countedToday = new Set(await idsWhere(admin, today, STREAK_MIN_MS));
-  const candidates = countedYesterday.filter((id) => !countedToday.has(id));
-  const result: AtRiskResult = { candidates: candidates.length, due: 0, sent: 0 };
+  const days = await recentQualifyingDays(admin, now);
+  const people = Array.from(days.keys());
+  const result: AtRiskResult = { candidates: 0, due: 0, sent: 0 };
 
-  for (let i = 0; i < candidates.length; i += 200) {
-    const chunk = candidates.slice(i, i + 200);
+  for (let i = 0; i < people.length; i += 200) {
+    const chunk = people.slice(i, i + 200);
     const { data: settingsRows, error } = await admin.from("notification_settings").select("user_id, streak, time_zone").in("user_id", chunk);
     if (error) throw new Error(`read settings: ${error.message}`);
     const settings = new Map(((settingsRows ?? []) as Settings[]).map((s) => [s.user_id, s]));
-    const due = chunk.filter((id) => settings.get(id)?.streak !== false && atRiskDue(now, settings.get(id)?.time_zone ?? "UTC"));
-    if (!due.length) continue;
-    result.due += due.length;
 
-    for (const id of due) {
-      const tz = settings.get(id)?.time_zone ?? "UTC";
+    for (const id of chunk) {
+      const tz = safeZone(settings.get(id)?.time_zone ?? null);
+      const today = dayIn(tz, now);
+      const counted = days.get(id) as Set<string>;
+      if (!counted.has(addDays(today, -1)) || counted.has(today)) continue;
+      result.candidates++;
+      if (settings.get(id)?.streak === false || !atRiskDue(now, tz)) continue;
+      result.due++;
+
       // Streak length, for the wording (at most 400 rows: under the API's 1,000-row cap).
       const { data: rows, error: usageError } = await admin
         .from("usage_sessions")
         .select("date, ms_spent")
         .eq("user_id", id)
-        .gte("date", prevDay(today, 400))
+        .gte("date", addDays(today, -400))
         .lt("date", today)
         .gte("ms_spent", STREAK_MIN_MS);
       if (usageError) throw new Error(`read streak: ${usageError.message}`);
       const n = Math.max(1, streakThroughYesterday((rows ?? []).map((r) => ({ date: r.date as string, ms_spent: Number(r.ms_spent) })), today));
-      const by = dayEndsAt(now, tz);
-      const title = n === 1 ? "Make it two days in a row" : `Keep your ${n}-day streak going`;
-      const body = n === 1 ? `You showed up yesterday. Spend 2 minutes in the feed before ${by} to keep going.` : `Spend 2 minutes in the feed before ${by} to keep it.`;
       result.sent += await notify(admin, {
         users: [id],
         kind: "streak_at_risk",
         key: `streak_at_risk:${today}`,
-        title,
-        body,
+        title: n === 1 ? "Make it two days in a row" : `Keep your ${n}-day streak going`,
+        body: n === 1 ? "You showed up yesterday. Spend 2 minutes in the feed before midnight to keep going." : "Spend 2 minutes in the feed before midnight to keep it.",
         link: "/feed",
       });
     }

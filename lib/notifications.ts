@@ -36,7 +36,7 @@ export function isMissing(code: string | undefined): boolean {
   return code === "42P01" || code === "42883" || code === "PGRST202" || code === "PGRST205";
 }
 
-// "2026-10-23": the same UTC day the streak and daily limit use.
+// "2026-10-23" in UTC: used for notice keys (one notice per kind per day).
 export function utcDay(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
@@ -248,12 +248,12 @@ export async function noticeJobFailed(admin: SupabaseClient, job: string, label:
 // Everyone: streak and collections.
 // ---------------------------------------------------------------------------
 
-export async function noticeStreakMilestone(admin: SupabaseClient, userId: string, days: number, title: string, line: string): Promise<void> {
+export async function noticeStreakMilestone(admin: SupabaseClient, userId: string, days: number, title: string, line: string, day: string = utcDay()): Promise<void> {
   await safe("streak_milestone", async () => {
     await notify(admin, {
       users: [userId],
       kind: "streak_milestone",
-      key: `streak_milestone:${utcDay()}`,
+      key: `streak_milestone:${day}`,
       title: title.replace(/\.$/, ""),
       body: `${line} That's a ${days}-day streak.`,
       link: "/profile",

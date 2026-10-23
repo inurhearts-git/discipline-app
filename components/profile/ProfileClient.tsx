@@ -275,24 +275,26 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             <div style={{ height: "100%", width: `${toNext * 100}%`, background: COLORS.ember }} />
           </div>
           <p style={{ fontSize: 11, color: COLORS.slate, margin: "8px 0 0" }}>
-            {upcoming === null
-              ? "You've passed every milestone."
-              : `${upcoming - currentStreak} more ${dayWord(upcoming - currentStreak)} to reach ${upcoming}.`}{" "}
-            {todayCounted
-              ? "Today counts."
-              : currentStreak > 0
-                ? "Spend 2 minutes in the feed today to keep it going."
-                : "Spend 2 minutes in the feed today to start one."}
+            {currentStreak === 0
+              ? bestStreakDays > 0
+                ? "Your last streak ended. Spend 2 minutes in the feed today to start a new one."
+                : "Spend 2 minutes in the feed today to start a streak."
+              : `${upcoming === null ? "You've passed every milestone." : `${upcoming - currentStreak} more ${dayWord(upcoming - currentStreak)} to reach ${upcoming}.`} ${
+                  todayCounted ? "Today counts." : "Spend 2 minutes in the feed today to keep it going."
+                }`}
           </p>
 
           <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
             {STREAK_MILESTONES.map((m) => {
-              const reached = bestStreakDays >= m;
+              // Filled: reached in the current streak. Dashed: reached in an
+              // earlier streak (your best), not in this one.
+              const reached = currentStreak >= m;
+              const before = !reached && bestStreakDays >= m;
               return (
                 <div
                   key={m}
-                  aria-label={`${m}-day streak, ${reached ? "reached" : "not reached yet"}`}
-                  title={reached ? `Reached ${m} days` : `Reach a ${m}-day streak`}
+                  aria-label={`${m}-day streak, ${reached ? "reached" : before ? "reached in an earlier streak" : "not reached yet"}`}
+                  title={reached ? `Reached ${m} days` : before ? `Reached ${m} days in an earlier streak` : `Reach a ${m}-day streak`}
                   style={{
                     flex: 1,
                     display: "flex",
@@ -302,12 +304,12 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
                     padding: "5px 0",
                     borderRadius: 8,
                     fontSize: 11,
-                    border: `1px solid ${reached ? COLORS.ember : COLORS.line}`,
+                    border: `1px ${before ? "dashed" : "solid"} ${reached ? COLORS.ember : before ? alpha(COLORS.ember, 60) : COLORS.line}`,
                     background: reached ? alpha(COLORS.ember, 10) : "transparent",
-                    color: reached ? COLORS.ember : COLORS.slate,
+                    color: reached || before ? COLORS.ember : COLORS.slate,
                   }}
                 >
-                  {reached && <Flame size={9} fill={COLORS.ember} />} {m}
+                  {(reached || before) && <Flame size={9} fill={reached ? COLORS.ember : "none"} />} {m}
                 </div>
               );
             })}
@@ -379,7 +381,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             </span>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
               {usageHistory.map((day) => {
-                const isToday = day.date === new Date().toISOString().slice(0, 10);
+                const isToday = day.date === usageHistory[usageHistory.length - 1]?.date;
                 const barPx = Math.max(3, Math.round(Math.min(1, day.msSpent / maxDayMs) * 38));
                 return (
                   <div key={day.date} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
