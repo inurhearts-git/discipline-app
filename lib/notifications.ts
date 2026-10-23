@@ -18,7 +18,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPush } from "@/lib/push";
 
-export const USER_KINDS = ["streak_milestone", "streak_at_risk", "collection_new", "submission_approved", "submission_rejected", "comeback"] as const;
+export const USER_KINDS = ["streak_milestone", "streak_at_risk", "collection_new", "submission_approved", "submission_rejected", "comeback", "birthday"] as const;
 export const ADMIN_KINDS = ["admin_job_failed", "admin_reports", "admin_submissions", "admin_erasures"] as const;
 export type NoticeKind = (typeof USER_KINDS)[number] | (typeof ADMIN_KINDS)[number];
 
@@ -26,7 +26,7 @@ export { NOTICE_SETTINGS, DEFAULT_SETTINGS, type NoticeSettingId, type NoticeSet
 
 // Kinds that also go to the person's phone or browser when push is on
 // (lib/push.ts). The first notice of the day only, never the merged repeats.
-export const PUSH_KINDS: readonly NoticeKind[] = ["streak_at_risk", "comeback", "submission_approved", "submission_rejected", "admin_job_failed"];
+export const PUSH_KINDS: readonly NoticeKind[] = ["streak_at_risk", "comeback", "birthday", "submission_approved", "submission_rejected", "admin_job_failed"];
 
 // Postgres / PostgREST codes for "that table or function doesn't exist yet".
 export function isMissing(code: string | undefined): boolean {

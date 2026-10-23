@@ -13,6 +13,7 @@ import { localDay } from "@/lib/day";
 import { setTodayMood } from "@/lib/mood-look";
 import { MOMENTS } from "@/lib/mood-moments";
 import { MomentOffer, MoodMomentPlayer } from "@/components/feed/MoodMoment";
+import { BirthdayOverlay, markSeen as markBirthdaySeen, seenToday, type BirthdayCard } from "@/components/feed/BirthdayCard";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { ReportSheet } from "@/components/ui/ReportSheet";
@@ -51,6 +52,8 @@ interface FeedClientProps {
   collection?: { title: string; emoji: string } | null;
   featuredId?: string | null;
   meaningIds?: string[];
+  birthdayCards?: BirthdayCard[];
+  openBirthday?: string | null;
 }
 
 // Never shorter than the old 720px; grows to fill taller phone screens.
@@ -69,7 +72,7 @@ const chipStyle = { pointerEvents: "auto" as const, whiteSpace: "nowrap" as cons
 
 const iconBtn = { background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 3 };
 
-export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, collection = null, featuredId, meaningIds = [] }: FeedClientProps) {
+export function FeedClient({ items, profile, initialLiked, initialSaved, initialMsSpentToday, tracks, streakBase, activeMood, collection = null, featuredId, meaningIds = [], birthdayCards = [], openBirthday = null }: FeedClientProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState<number | null>(null);
@@ -331,6 +334,20 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
       // ignore
     }
   }, [moodId]);
+
+  // Birthday cards (yours, and the ones added on Profile): once a day each,
+  // and only after the mood picker is done. A reminder link opens its card again.
+  const [bdayQueue, setBdayQueue] = useState<BirthdayCard[]>([]);
+  useEffect(() => {
+    const seen = seenToday(localDay());
+    setBdayQueue(birthdayCards.filter((c) => c.key === openBirthday || !seen.includes(c.key)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const closeBirthday = () => {
+    const [first, ...rest] = bdayQueue;
+    if (first) markBirthdaySeen(localDay(), first.key);
+    setBdayQueue(rest);
+  };
 
   const pickMood = (id: MoodId | null) => {
     try {
@@ -760,7 +777,9 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
         )}
       </div>
 
-      {momentOffer && moodId && !moodOpen && (
+      {bdayQueue.length > 0 && !moodOpen && !momentOpen && <BirthdayOverlay key={bdayQueue[0].key} card={bdayQueue[0]} onClose={closeBirthday} />}
+
+      {momentOffer && moodId && !moodOpen && bdayQueue.length === 0 && (
         <MomentOffer
           mood={moodId}
           onStart={() => {

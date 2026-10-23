@@ -25,6 +25,7 @@ export default function PrivacyPage() {
                 "How you use the app: the time you spend each day (for the daily limit and streaks), and which items you view, like or save.",
                 "What you write: one-line reflections, private journal entries, and anything you submit or report.",
                 "Notices we show you in the app (under the bell), which kinds you switched off, and your device's time zone, so your day, your daily hour and your streak run from your own midnight and a streak reminder arrives in your evening.",
+                "Birthdays you add on Profile: who the person is to you (for example spouse or friend), which word to use for them, and the day and month. We never ask for their names.",
                 "If you turn on phone notifications: the delivery address your browser gives us for that device, and when you last opened the app, so we can send a gentle nudge after a few days away.",
                 "That you accepted these terms, and when.",
               ]}

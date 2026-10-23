@@ -10,6 +10,7 @@ import { ProfileClient } from "@/components/profile/ProfileClient";
 import type { Profile } from "@/lib/database.types";
 import { DEFAULT_SETTINGS, NOTICE_SETTINGS, type NoticeSettings } from "@/lib/notifications";
 import { pushConfigured } from "@/lib/push";
+import type { BirthdayRow } from "@/components/profile/BirthdaysCard";
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -91,6 +92,10 @@ export default async function ProfilePage() {
   const { error: pushTableError } = await admin.from("push_subscriptions").select("id", { head: true, count: "exact" }).limit(1);
   const has0018 = !pushTableError;
   if (noticeSettings && !has0018) delete (noticeSettings as Partial<NoticeSettings>).comeback;
+  // Birthdays you added (migration 0019; null before it is run).
+  const { data: bdayRows, error: bdayError } = await supabase.from("birthdays").select("id, relation, pronoun, month, day").eq("user_id", user.id);
+  const birthdays = bdayError ? null : ((bdayRows ?? []) as BirthdayRow[]);
+  if (noticeSettings && birthdays === null) delete (noticeSettings as Partial<NoticeSettings>).birthdays;
   const pushState: "ready" | "no-keys" | "no-migration" = !has0018 ? "no-migration" : pushConfigured() ? "ready" : "no-keys";
 
   let pendingCount = 0;
@@ -126,6 +131,7 @@ export default async function ProfilePage() {
       lastJournalAt={latestEntries?.[0]?.created_at ?? null}
       noticeSettings={noticeSettings}
       pushState={pushState}
+      birthdays={birthdays}
     />
   );
 }
