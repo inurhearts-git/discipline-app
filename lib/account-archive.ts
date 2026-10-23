@@ -93,9 +93,9 @@ export async function eraseLiveData(admin: SupabaseClient, userId: string): Prom
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) throw new Error(`erase ${table}: ${error.message}`);
   }
-  // Notices and notice settings are not archived: they go now (migration 0017;
-  // before it is run the tables don't exist, which is fine).
-  for (const table of ["notifications", "notification_settings"]) {
+  // Notices, notice settings and push devices are not archived: they go now
+  // (migrations 0017 and 0018; before they are run the tables don't exist).
+  for (const table of ["notifications", "notification_settings", "push_subscriptions"]) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);
     if (error && error.code !== "42P01" && error.code !== "PGRST205") throw new Error(`erase ${table}: ${error.message}`);
   }

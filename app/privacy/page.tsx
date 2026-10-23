@@ -25,6 +25,7 @@ export default function PrivacyPage() {
                 "How you use the app: the time you spend each day (for the daily limit and streaks), and which items you view, like or save.",
                 "What you write: one-line reflections, private journal entries, and anything you submit or report.",
                 "Notices we show you in the app (under the bell), which kinds you switched off, and your device's time zone, so your day, your daily hour and your streak run from your own midnight and a streak reminder arrives in your evening.",
+                "If you turn on phone notifications: the delivery address your browser gives us for that device, and when you last opened the app, so we can send a gentle nudge after a few days away.",
                 "That you accepted these terms, and when.",
               ]}
             />
@@ -57,6 +58,7 @@ export default function PrivacyPage() {
                   "Supabase: our database and sign-in.",
                   "Vercel: hosting.",
                   "Resend: sign-up and password emails.",
+                  "Your browser's push service (Google for Chrome and Android, Apple for Safari and iPhone, Mozilla for Firefox): delivers phone notifications if you turn them on. They see the notification's short text.",
                   "Anthropic: its Claude AI drafts the plain-language meanings of public quotes. Only the public quote text is sent, never your personal information.",
                   <>
                     YouTube (Google): videos play in YouTube&apos;s embedded player. When you play a video, Google may collect data under the{" "}
@@ -95,7 +97,7 @@ export default function PrivacyPage() {
                 your name.
               </p>
               <p style={{ margin: "10px 0 0" }}>
-                Notices under the bell are deleted 90 days after you read them, and after a year in any case. Deleting your account deletes them and your notice settings straight away; they are not kept in the archive.
+                Notices under the bell are deleted 90 days after you read them, and after a year in any case. Phone notification addresses are kept until you turn them off, sign out on that device, or the push service says they no longer work. Deleting your account deletes all of these and your notice settings straight away; they are not kept in the archive.
               </p>
               <p style={{ margin: "10px 0 0" }}>
                 To protect against data loss we keep encrypted backups of the database for up to 12 months. Backups are only used to restore the service. Deleted information leaves the backups as they are replaced, within 12 months.

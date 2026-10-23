@@ -8,7 +8,8 @@ import { userToday } from "@/lib/day-server";
 import { bestStreak, streakThroughYesterday } from "@/lib/streak";
 import { ProfileClient } from "@/components/profile/ProfileClient";
 import type { Profile } from "@/lib/database.types";
-import { DEFAULT_SETTINGS, type NoticeSettings } from "@/lib/notifications";
+import { DEFAULT_SETTINGS, NOTICE_SETTINGS, type NoticeSettings } from "@/lib/notifications";
+import { pushConfigured } from "@/lib/push";
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -78,10 +79,19 @@ export default async function ProfilePage() {
   // (migration not run) hides the switches.
   const { data: noticeRow, error: noticeError } = await supabase
     .from("notification_settings")
-    .select("streak, collections, submissions")
+    .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
-  const noticeSettings: NoticeSettings | null = noticeError ? null : { ...DEFAULT_SETTINGS, ...(noticeRow ?? {}) };
+  let noticeSettings: NoticeSettings | null = null;
+  if (!noticeError) {
+    noticeSettings = { ...DEFAULT_SETTINGS };
+    for (const s of NOTICE_SETTINGS) if (typeof noticeRow?.[s.id] === "boolean") noticeSettings[s.id] = noticeRow[s.id];
+  }
+  // Push and the comeback switch need migration 0018; push also needs the VAPID keys.
+  const { error: pushTableError } = await admin.from("push_subscriptions").select("id", { head: true, count: "exact" }).limit(1);
+  const has0018 = !pushTableError;
+  if (noticeSettings && !has0018) delete (noticeSettings as Partial<NoticeSettings>).comeback;
+  const pushState: "ready" | "no-keys" | "no-migration" = !has0018 ? "no-migration" : pushConfigured() ? "ready" : "no-keys";
 
   let pendingCount = 0;
   let adminAlert: { lone: boolean; overdue: number; jobProblems: string[] } | null = null;
@@ -115,6 +125,7 @@ export default async function ProfilePage() {
       journalCount={journalCount ?? 0}
       lastJournalAt={latestEntries?.[0]?.created_at ?? null}
       noticeSettings={noticeSettings}
+      pushState={pushState}
     />
   );
 }

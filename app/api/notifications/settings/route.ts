@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { deletedAccountResponse, isDeletedAccount } from "@/lib/api-auth";
 import { DEFAULT_SETTINGS, NOTICE_SETTINGS, isMissing, type NoticeSettings } from "@/lib/notifications";
 
-// PATCH /api/notifications/settings  { streak?, collections?, submissions? }
+// PATCH /api/notifications/settings  { streak?, collections?, submissions?, comeback? }
 // Switches a kind of notice on or off for the caller. Switching a kind off
 // stops new notices of that kind; ones already under the bell stay.
 export async function PATCH(request: Request) {
@@ -23,11 +23,13 @@ export async function PATCH(request: Request) {
   const { data, error } = await createAdminClient()
     .from("notification_settings")
     .upsert({ user_id: user.id, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
-    .select("streak, collections, submissions")
+    .select("*")
     .single();
   if (error) {
     const msg = isMissing(error.code) ? "Notices aren't switched on yet (migration 0017)." : "Couldn't save that. Try again.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-  return NextResponse.json({ settings: { ...DEFAULT_SETTINGS, ...data } });
+  const settings = { ...DEFAULT_SETTINGS };
+  for (const s of NOTICE_SETTINGS) if (typeof data?.[s.id] === "boolean") settings[s.id] = data[s.id];
+  return NextResponse.json({ settings });
 }

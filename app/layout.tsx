@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeSync } from "@/components/ui/ThemeSync";
@@ -7,7 +7,12 @@ import { ZoneSync } from "@/components/ui/ZoneSync";
 export const metadata: Metadata = {
   title: "Discipline",
   description: "A feed built for focus, not scrolling.",
+  // Home-screen app (app/manifest.ts); iPhone needs it for push notifications.
+  appleWebApp: { capable: true, title: "Discipline", statusBarStyle: "black-translucent" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
+
+export const viewport: Viewport = { themeColor: "#14110f" };
 
 // Runs before first paint so there is no flash of the wrong theme.
 // Preference is "dark" | "light" | "system" in localStorage `mf-theme`.
