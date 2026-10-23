@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Discipline</string>
+    <!-- The live site. Change it, asset_statements, and the host in AndroidManifest.xml if the address changes. -->
+    <string name="launch_url">https://discipline-app-two-phi.vercel.app/feed</string>
+    <string name="asset_statements" translatable="false">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://discipline-app-two-phi.vercel.app\" } }]</string>
+</resources>

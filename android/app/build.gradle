@@ -1,0 +1,50 @@
+// Discipline for Android: a Trusted Web Activity. The app opens the live site
+// in Chrome's engine, full screen, so it always runs the latest version and web
+// push notifications show as this app's notifications. The site address is
+// launch_url in res/values/strings.xml.
+plugins {
+    id 'com.android.application'
+}
+
+def buildNumber = (System.getenv("VERSION_CODE") ?: "1") as Integer
+
+android {
+    namespace 'com.inurhearts.discipline'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.inurhearts.discipline"
+        minSdk 21
+        targetSdk 34
+        versionCode buildNumber
+        versionName "0.1.${buildNumber}"
+    }
+
+    // Signing: the GitHub secrets when they are set (see android/README.md),
+    // otherwise the test key in this folder. The test key is public: fine for
+    // trying the app, never for the Play Store.
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("ANDROID_KEYSTORE") ?: "../test-signing.jks")
+            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "discipline-test"
+            keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "discipline-test"
+            keyPassword System.getenv("ANDROID_KEY_PASSWORD") ?: "discipline-test"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}
