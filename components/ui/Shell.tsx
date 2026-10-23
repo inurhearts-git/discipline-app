@@ -3,10 +3,13 @@
 import { COLORS } from "@/lib/constants";
 import type { ReactNode } from "react";
 import { BottomNav } from "@/components/ui/BottomNav";
+import { MoodLayer, useMoodLook } from "@/components/ui/MoodLook";
 
 export function Shell({ children }: { children: ReactNode }) {
+  const mood = useMoodLook();
   return (
     <div
+      className="mf-shell"
       style={{
         width: "100%",
         maxWidth: 420,
@@ -36,7 +39,10 @@ export function Shell({ children }: { children: ReactNode }) {
         @keyframes mf-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       ` }} />
       {/* Wrapper keeps every page's absolute-positioned elements inside the content area, above the tab bar */}
-      <div style={{ position: "relative", minHeight: 720 }}>{children}</div>
+      <div style={{ position: "relative", minHeight: 720 }}>
+        {children}
+        <MoodLayer mood={mood} />
+      </div>
       <BottomNav />
     </div>
   );

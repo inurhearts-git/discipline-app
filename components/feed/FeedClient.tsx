@@ -10,6 +10,9 @@ import type { ContentItem, Profile } from "@/lib/database.types";
 import { STREAK_MIN_MS, milestoneAt, milestoneCopy } from "@/lib/streak";
 import { MOODS, type MoodId } from "@/lib/moods";
 import { localDay } from "@/lib/day";
+import { setTodayMood } from "@/lib/mood-look";
+import { MOMENTS } from "@/lib/mood-moments";
+import { MomentOffer, MoodMomentPlayer } from "@/components/feed/MoodMoment";
 import { ShareSheet } from "@/components/ui/ShareSheet";
 import { MeaningLink, MeaningSheet } from "@/components/ui/MeaningSheet";
 import { ReportSheet } from "@/components/ui/ReportSheet";
@@ -308,12 +311,32 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
       // storage unavailable: skip the picker
     }
   }, []);
-  const pickMood = (id: MoodId | null) => {
+  // Mood moments (lib/mood-moments.ts): offered once right after picking a mood,
+  // and always one tap away from the chip next to the mood.
+  const [momentOffer, setMomentOffer] = useState(false);
+  const [momentOpen, setMomentOpen] = useState(false);
+  const moodId = activeMood && activeMood in MOMENTS ? (activeMood as MoodId) : null;
+  useEffect(() => {
+    if (!moodId) return;
+    setTodayMood(moodId); // arriving with ?mood= also sets today's look
     try {
-      localStorage.setItem("mf-mood-day", localDay());
+      if (localStorage.getItem("mf-moment-offer") === moodId) {
+        localStorage.removeItem("mf-moment-offer");
+        setMomentOffer(true);
+      }
     } catch {
       // ignore
     }
+  }, [moodId]);
+
+  const pickMood = (id: MoodId | null) => {
+    try {
+      localStorage.setItem("mf-mood-day", localDay());
+      if (id) localStorage.setItem("mf-moment-offer", id);
+    } catch {
+      // ignore
+    }
+    setTodayMood(id);
     if (id) window.location.assign(`/feed?mood=${id}`);
     else setMoodOpen(false);
   };
@@ -705,6 +728,33 @@ export function FeedClient({ items, profile, initialLiked, initialSaved, initial
           ? `${MOODS.find((m) => m.id === activeMood)?.emoji} ${MOODS.find((m) => m.id === activeMood)?.label} · change`
           : "💭 Mood"}
       </button>
+
+      {moodId && !collection && (
+        <button
+          onClick={() => {
+            setMomentOffer(false);
+            setMomentOpen(true);
+          }}
+          data-theme={onVideo ? "dark" : undefined}
+          aria-label={`Start ${MOMENTS[moodId].name}`}
+          style={{ position: "absolute", top: 88, left: 16, zIndex: 20, padding: "5px 10px", borderRadius: 14, border: `1px solid ${alpha(COLORS.brass, 50)}`, background: alpha(COLORS.ink, 70), color: COLORS.brass, fontSize: 11, cursor: "pointer" }}
+        >
+          ▶ {MOMENTS[moodId].name}
+        </button>
+      )}
+
+      {momentOffer && moodId && !moodOpen && (
+        <MomentOffer
+          mood={moodId}
+          onStart={() => {
+            setMomentOffer(false);
+            setMomentOpen(true);
+          }}
+          onClose={() => setMomentOffer(false)}
+        />
+      )}
+
+      {momentOpen && moodId && <MoodMomentPlayer mood={moodId} onClose={() => setMomentOpen(false)} />}
 
       {moodOpen && (
         <div style={{ position: "absolute", inset: 0, zIndex: 40, background: alpha(COLORS.ink, 97), display: "flex", flexDirection: "column", justifyContent: "center", padding: 28 }}>

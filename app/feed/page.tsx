@@ -216,7 +216,15 @@ export default async function FeedPage({
 
   // Mood-first entry: the feed opens on a match and leans toward the mood
   // (about 70%), with the rest drawn from outside it.
-  const mood = searchParams.mood && isMoodId(searchParams.mood) ? searchParams.mood : null;
+  // The mood from the link, or else today's mood picked earlier on this device
+  // (cookie "mf_mood" = "YYYY-MM-DD:mood", set by lib/mood-look.ts), unless
+  // the feed was opened for one item, topic or collection.
+  const cookieMood = (() => {
+    const [day, id] = decodeURIComponent(cookies().get("mf_mood")?.value ?? "").split(":");
+    return day === today && id && isMoodId(id) ? id : null;
+  })();
+  const plainFeed = !searchParams.item && !searchParams.tag && !searchParams.collection;
+  const mood = searchParams.mood && isMoodId(searchParams.mood) ? searchParams.mood : plainFeed ? cookieMood : null;
   if (mood) {
     const hasMood = (i: ContentItem) => ((i as ContentItem & { moods?: string[] | null }).moods ?? []).includes(mood);
     items = blendByMood(items.filter(hasMood), items.filter((i) => !hasMood(i)));

@@ -14,6 +14,7 @@ import { Stamp } from "@/components/journal/Stamp";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
 import { NoticeSettingsCard } from "@/components/profile/NoticeSettings";
+import { MoodLookToggle } from "@/components/profile/MoodLookToggle";
 import type { NoticeSettings } from "@/lib/notice-settings";
 import { disablePush } from "@/lib/push-client";
 
@@ -412,6 +413,7 @@ export function ProfileClient({ profile: initialProfile, usageMs, usageHistory, 
             <span style={{ fontSize: 12, color: COLORS.parchment }}>Appearance</span>
           </div>
           <ThemeToggle />
+          <MoodLookToggle />
         </div>
 
         <NoticeSettingsCard settings={noticeSettings} role={profile.role} pushState={pushState} />
