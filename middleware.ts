@@ -68,6 +68,6 @@ export const config = {
     // check auth themselves so they can return JSON errors instead of
     // redirects).
     // The service worker, app manifest and icons must load signed out too.
-    "/((?!_next/static|_next/image|favicon.ico|api|sw\\.js|manifest\\.webmanifest|icons/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api|sw\\.js|manifest\\.webmanifest|icons/|\\.well-known/).*)",
   ],
 };
